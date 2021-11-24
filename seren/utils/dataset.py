@@ -1,12 +1,11 @@
 import os
 import numpy as np
 import pandas as pd
-from logging import getLogger
 
 class Interactions(object): 
-    def __init__(self, config):
+    def __init__(self, config, logger):
         self.config = config
-        self.logger = getLogger()
+        self.logger = logger
 
         self.user_key = config['user_key']
         self.item_key = config['item_key'] 
@@ -50,6 +49,10 @@ class Interactions(object):
         self.item_map, df[self.item_key] = self._set_map(df, self.item_key)
 
         self.df = df
+        self.user_num = df[self.user_key].nunique()
+        self.item_num = df[self.item_key].nunique()
+
+        self.logger.info(f'Finish loading {dataset_name} data, current length is: {len(df)}, user number: {self.user_num}, item number: {self.item_num}')
 
     def _set_map(self, df, key):
         codes = pd.Categorical(df[key]).codes
@@ -78,6 +81,8 @@ class Interactions(object):
         session_ids = np.cumsum(new_session)
         self.df[self.session_key] = session_ids
 
+        self.logger.info(f'Finish making {self.session_key} for data')
+
     def _core_filter(self, pop_num=5, bad_sess_len=1, user_sess_num=5, user_num_good_sess=200):
         # drop duplicate interactions within the same session
         self.df.drop_duplicates(
@@ -101,7 +106,12 @@ class Interactions(object):
         good_users = sess_per_user[(sess_per_user >= user_sess_num) & (sess_per_user < user_num_good_sess)].index
         self.df = self.df[self.df[self.user_key].isin(good_users)]
 
-    def get_seq_from_df(self, max_len=10):
+        self.user_num = self.df[self.user_key].nunique()
+        self.item_num = self.df[self.item_key].nunique()
+
+        self.logger.info(f'Finish filtering data, current length is: {len(self.df)}, user number: {self.user_num}, item number: {self.item_num}')
+
+    def get_seq_from_df(self):
         dic = self.df[[self.user_key, self.session_key]].drop_duplicates()
         seq = []
         for u, s in dic.values:
@@ -113,9 +123,9 @@ class Interactions(object):
 
 class Categories(object):
     # TODO read category info, used for IDLS
-    def __init__(self, config):
+    def __init__(self, config, logger):
         self.config = config
-        self.logger = getLogger()
+        self.logger = logger
 
         self.user_key = config['user_key']
         self.item_key = config['item_key'] 

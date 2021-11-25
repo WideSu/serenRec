@@ -1,10 +1,11 @@
 import argparse
 
 
-from seren.utils.dataset import Interactions
+from seren.utils.data import Interactions
 from seren.utils.config import get_parameters, get_logger
 from seren.utils.functions import build_seqs, get_seq_from_df
 from seren.utils.model_selection import fold_out
+from seren.utils.dataset import SeqDataset, get_loader
 
 logger = get_logger(__file__.split('.')[0])
 
@@ -16,8 +17,10 @@ parser.add_argument("--time_key", default="timestamp", type=str)
 parser.add_argument("--dataset", default="ml-100k", type=str)
 parser.add_argument("--desc", default="nothing", type=str)
 
+parser.add_argument('--batch_size', type=int, default=128)
+
 args = parser.parse_args()
-conf = get_parameters(args)
+conf, model_conf = get_parameters(args)
 
 ds = Interactions(conf, logger)
 train, test = fold_out(ds.df, conf)
@@ -28,3 +31,6 @@ valid_sequences = build_seqs(get_seq_from_df(valid, conf), conf['session_len'])
 test_sequences = build_seqs(get_seq_from_df(test, conf), conf['session_len'])
 
 
+train_dataset = SeqDataset(train_sequences, logger)
+train_loader = get_loader(train_dataset, model_conf, shuffle=True)
+logger.info(len(train_loader))

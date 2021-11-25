@@ -1,5 +1,7 @@
 import math
+import time
 import torch
+import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
@@ -7,7 +9,8 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 epsilon = 1e-4
 
 class NARM(nn.Module):
-    def __init__(self, n_items, embedding_item_dim, hidden_size, 
+    def __init__(self, n_items, embedding_item_dim, hidden_size,
+                 epochs, logger,
                  lr, l2, lr_dc_step, lr_dc=0.1, n_layers=1):
         '''
         NARM model class: https://dl.acm.org/doi/pdf/10.1145/3132847.3132926
@@ -32,6 +35,8 @@ class NARM(nn.Module):
             the number of gru layers, by default 1
         '''        
         super(NARM, self).__init__()
+        self.epochs = epochs
+        self.logger = logger
         # parameters
         self.n_items = n_items
         self.embedding_item_dim = embedding_item_dim
@@ -98,5 +103,49 @@ class NARM(nn.Module):
         
         return item_scores
 
-    
+    def fit(self, train_loader):
+        self.cuda() if torch.cuda.is_available() else self.cpu()
+        start = time.time()
+        best_result = 1e4
+        best_epoch = 0
+        bad_counter = 0
+
+        total_batches = math.ceil(len(train_loader)/self.batch_size)
+
+        self.logger.info('Start training...')
+        for epoch in range(self.epochs):
+            self.logger.info('training epoch: ', epoch)
+            self.train()
+            total_loss = []
+            for i, (seq, target, lens) in enumerate(train_loader):
+                self.optimizer.zero_grad()
+                scores = self.forward(seq.to(self.device), lens)
+                loss = self.loss_function(torch.log(scores.clamp(min=1e-9)), target.squeeze().to(self.device))
+                loss.backward()
+                self.optimizer.step()
+                total_loss.append(loss.item())
+                if i % int(total_batches/5 + 1) == 0:
+                    self.logger.info(f'[{i}/{total_batches}] Loss: {loss.item():.4f}')
+            self.logger.info(f'Total Loss:\t{np.mean(total_loss):.3f}')
+            
+
+    def predict(self, test_loader, k=15):
+        self.eval()        
+        for _, (seq, target_item, lens) in enumerate(test_loader):
+            scores = self.forward(seq.to(self.device), lens)
+            rank_list = (torch.argsort(scores[:,1:], descending=True)+1)[:,:k]  # TODO why +1
+
+        return rank_list.cpu()
+
+    def evaluate(self, validation_loader):
+        self.eval()
+        valid_loss = []
+        for _, (seq, target_item, lens) in enumerate(validation_loader):
+            scores = self.forward(seq.to(self.device), lens)
+            tmp_loss = self.loss_function(torch.log(scores.clamp(min=1e-9)), target_item.squeeze().to(self.device))
+            valid_loss.append(tmp_loss.item())
+            # TODO other metrics
+
+        return np.mean(valid_loss)
+        
 

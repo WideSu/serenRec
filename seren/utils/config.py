@@ -45,7 +45,7 @@ def get_parameters(args):
     }
 
     model_params = {
-        
+        'batch_size': args.batch_size
     }
 
-    return params
+    return params, model_params

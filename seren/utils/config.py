@@ -45,7 +45,16 @@ def get_parameters(args):
     }
 
     model_params = {
-        'batch_size': args.batch_size
+        'batch_size': args.batch_size,
+        'item_embedding_dim': args.item_embedding_dim,
+        'hidden_size': args.hidden_size,
+        'epochs': args.epochs,
+        'learning_rate': args.lr,
+        'l2': args.l2,
+        'lr_dc_step': args.lr_dc_step,
+        'lr_dc': args.lr_dc,
+        'n_layers': args.n_layers,
+
     }
 
     return params, model_params

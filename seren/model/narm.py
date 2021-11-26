@@ -1,5 +1,6 @@
 import math
 import time
+from pytest import param
 import torch
 import numpy as np
 import torch.nn as nn
@@ -9,9 +10,7 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 epsilon = 1e-4
 
 class NARM(nn.Module):
-    def __init__(self, n_items, embedding_item_dim, hidden_size,
-                 epochs, logger,
-                 lr, l2, lr_dc_step, lr_dc=0.1, n_layers=1):
+    def __init__(self, n_items, params, logger):
         '''
         NARM model class: https://dl.acm.org/doi/pdf/10.1145/3132847.3132926
 
@@ -35,13 +34,14 @@ class NARM(nn.Module):
             the number of gru layers, by default 1
         '''        
         super(NARM, self).__init__()
-        self.epochs = epochs
+        self.epochs = params['epochs']
+        self.batch_size = params['batch_size']
         self.logger = logger
         # parameters
         self.n_items = n_items
-        self.embedding_item_dim = embedding_item_dim
-        self.hidden_size = hidden_size
-        self.n_layers = n_layers
+        self.embedding_item_dim = params['item_embedding_dim']
+        self.hidden_size = params['hidden_size']
+        self.n_layers = params['n_layers']
         # Embedding layer
         self.item_embedding = nn.Embedding(self.n_items, self.embedding_item_dim, padding_idx = 0)
         # Dropout layer
@@ -54,11 +54,13 @@ class NARM(nn.Module):
         self.a_2 = nn.Linear(self.hidden_size, self.hidden_size, bias=False)
         self.v_t = nn.Linear(self.hidden_size, 1, bias=False)
         self.b = nn.Linear(self.embedding_item_dim, 2 * self.hidden_size, bias=False)
+        self.sf = nn.Softmax(dim=1) #nn.LogSoftmax(dim=1)
         
         self.loss_function = nn.NLLLoss()
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=lr, weight_decay=l2)
-        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=lr_dc_step, gamma=lr_dc)
-        self.sf = nn.Softmax(dim=1) #nn.LogSoftmax(dim=1)
+        self.optimizer = torch.optim.Adam(
+            self.parameters(), lr=params['learning_rate'], weight_decay=params['l2'])
+        self.scheduler = torch.optim.lr_scheduler.StepLR(
+            self.optimizer, step_size=params['lr_dc_step'], gamma=params['lr_dc'])
 
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.reset_parameters()
@@ -103,14 +105,14 @@ class NARM(nn.Module):
         
         return item_scores
 
-    def fit(self, train_loader):
+    def fit(self, train_loader, validation_loader=None):
         self.cuda() if torch.cuda.is_available() else self.cpu()
-        start = time.time()
-        best_result = 1e4
-        best_epoch = 0
-        bad_counter = 0
+        # start = time.time()
+        # best_result = 1e4
+        # best_epoch = 0
+        # bad_counter = 0
 
-        total_batches = math.ceil(len(train_loader)/self.batch_size)
+        total_batches = math.ceil(len(train_loader) / self.batch_size)
 
         self.logger.info('Start training...')
         for epoch in range(self.epochs):
@@ -126,7 +128,12 @@ class NARM(nn.Module):
                 total_loss.append(loss.item())
                 if i % int(total_batches/5 + 1) == 0:
                     self.logger.info(f'[{i}/{total_batches}] Loss: {loss.item():.4f}')
-            self.logger.info(f'Total Loss:\t{np.mean(total_loss):.3f}')
+
+            s = ''
+            if not validation_loader:
+                valid_loss = self.evaluate(validation_loader)
+                s = f'\tValidation Loss: {valid_loss}'
+            self.logger.info(f'Train Loss: {np.mean(total_loss):.3f}' + s)
             
 
     def predict(self, test_loader, k=15):

@@ -6,6 +6,7 @@ from seren.utils.config import get_parameters, get_logger
 from seren.utils.functions import build_seqs, get_seq_from_df
 from seren.utils.model_selection import fold_out
 from seren.utils.dataset import SeqDataset, get_loader
+from seren.model.narm import NARM
 
 logger = get_logger(__file__.split('.')[0])
 
@@ -18,6 +19,14 @@ parser.add_argument("--dataset", default="ml-100k", type=str)
 parser.add_argument("--desc", default="nothing", type=str)
 
 parser.add_argument('--batch_size', type=int, default=128)
+parser.add_argument('--item_embedding_dim', type=int, default=100)
+parser.add_argument('--hidden_size', type=int, default=100)
+parser.add_argument('--epochs', type=int, default=20)
+parser.add_argument('--lr', type=float, default=0.001)
+parser.add_argument('--l2', type=float, default=1e-5)
+parser.add_argument('--lr_dc_step', type=int, default=3)
+parser.add_argument('--lr_dc', type=float, default=0.1)
+parser.add_argument('--n_layers', type=int, default=1)
 
 args = parser.parse_args()
 conf, model_conf = get_parameters(args)
@@ -32,5 +41,20 @@ test_sequences = build_seqs(get_seq_from_df(test, conf), conf['session_len'])
 
 
 train_dataset = SeqDataset(train_sequences, logger)
+valid_dataset = SeqDataset(valid_sequences, logger)
+test_dataset = SeqDataset(test_sequences, logger)
+logger.info(f'Length of Train: {len(train_dataset)}, Validation: {len(valid_dataset)}, Test: {len(test_dataset)}')
+logger.debug(ds.item_num)
+
+
+
 train_loader = get_loader(train_dataset, model_conf, shuffle=True)
-logger.info(len(train_loader))
+valid_loader = get_loader(valid_dataset, model_conf, shuffle=False)
+test_loader = get_loader(test_dataset, model_conf, shuffle=False)
+
+model = NARM(ds.item_num, model_conf, logger)
+
+model.fit(train_loader, valid_loader)
+
+rank_list = model.predict(test_loader)
+

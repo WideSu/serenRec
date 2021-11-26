@@ -16,10 +16,7 @@ class SeqDataset(Dataset):
         '''        
         self.data = data
         self.logger = logger
-        logger.info('-' * 50)
-        logger.info('Dataset info:')
-        logger.info('Number of sessions: {}'.format(len(data[0])))
-        logger.info('-' * 50)
+        logger.debug('Number of sessions: {}'.format(len(data[0])))
         
     def __getitem__(self, index):
         session_items = self.data[0][index]
@@ -34,7 +31,7 @@ def get_loader(dataset, args, shuffle=True):
     loader = DataLoader(
         dataset, 
         batch_size=args['batch_size'], 
-        shuffle=True, 
+        shuffle=shuffle, 
         collate_fn=pad_zero_for_seq
     )
 

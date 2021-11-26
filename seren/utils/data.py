@@ -18,6 +18,12 @@ class Interactions(object):
         self._load_data()
         self._make_sessions()
         self._core_filter()
+        self._reindex()
+
+        self.user_num = self.df[self.user_key].nunique()
+        self.item_num = self.df[self.item_key].nunique()
+
+        self.logger.info(f'Finish loading {self.dataset_name} data, current length is: {len(self.df)}, user number: {self.user_num}, item number: {self.item_num}')
 
     def _load_data(self):
         '''
@@ -33,6 +39,7 @@ class Interactions(object):
             column to present timestamp, by default 'ts'
         '''        
         dataset_name = self.config['dataset']
+        self.dataset_name = dataset_name
         
         if not os.path.exists(f'./dataset/{dataset_name}/'):
             self.logger.error('unexisted dataset...')
@@ -45,17 +52,11 @@ class Interactions(object):
         else:
             self.logger.error(f'cannot load data: {dataset_name}')
 
-        self.user_map, df[self.user_key] = self._set_map(df, self.user_key)
-        self.item_map, df[self.item_key] = self._set_map(df, self.item_key)
-
         self.df = df
-        self.user_num = df[self.user_key].nunique()
-        self.item_num = df[self.item_key].nunique()
 
-        self.logger.info(f'Finish loading {dataset_name} data, current length is: {len(df)}, user number: {self.user_num}, item number: {self.item_num}')
 
     def _set_map(self, df, key):
-        codes = pd.Categorical(df[key]).codes
+        codes = pd.Categorical(df[key]).codes + 1
         res = dict(zip(df[key], codes))
         return res, codes
 
@@ -111,6 +112,11 @@ class Interactions(object):
 
         self.logger.info(f'Finish filtering data, current length is: {len(self.df)}, user number: {self.user_num}, item number: {self.item_num}')
 
+    def _reindex(self):
+        self.user_map, self.df[self.user_key] = self._set_map(self.df, self.user_key)
+        self.item_map, self.df[self.item_key] = self._set_map(self.df, self.item_key)
+  
+    
     def get_seq_from_df(self):
         dic = self.df[[self.user_key, self.session_key]].drop_duplicates()
         seq = []

@@ -38,12 +38,12 @@ class NARM(nn.Module):
         self.batch_size = params['batch_size']
         self.logger = logger
         # parameters
-        self.n_items = n_items
+        self.n_items = n_items + 1 # 0 for None, so + 1
         self.embedding_item_dim = params['item_embedding_dim']
         self.hidden_size = params['hidden_size']
         self.n_layers = params['n_layers']
         # Embedding layer
-        self.item_embedding = nn.Embedding(self.n_items, self.embedding_item_dim, padding_idx = 0)
+        self.item_embedding = nn.Embedding(self.n_items, self.embedding_item_dim, padding_idx=0)
         # Dropout layer
         self.emb_dropout = nn.Dropout(0.25)
         self.ct_dropout = nn.Dropout(0.5)
@@ -89,7 +89,7 @@ class NARM(nn.Module):
         q1 = self.a_1(gru_out.contiguous().view(-1, self.hidden_size)).view(gru_out.size())
         q2 = self.a_2(ht)
 
-        mask = torch.where(seq.permute(1, 0) > 0, torch.tensor([1.], device = self.device), torch.tensor([0.], device = self.device))
+        mask = torch.where(seq.permute(1, 0) > 0, torch.tensor([1.], device=self.device), torch.tensor([0.], device = self.device))
         q2_expand = q2.unsqueeze(1).expand_as(q1)
         q2_masked = mask.unsqueeze(2).expand_as(q1) * q2_expand
 
@@ -107,15 +107,9 @@ class NARM(nn.Module):
 
     def fit(self, train_loader, validation_loader=None):
         self.cuda() if torch.cuda.is_available() else self.cpu()
-        # start = time.time()
-        # best_result = 1e4
-        # best_epoch = 0
-        # bad_counter = 0
-
-        total_batches = math.ceil(len(train_loader) / self.batch_size)
 
         self.logger.info('Start training...')
-        for epoch in range(self.epochs):
+        for epoch in range(1, self.epochs + 1):
             self.logger.info(f'training epoch: {epoch}')
             self.train()
             total_loss = []
@@ -126,21 +120,19 @@ class NARM(nn.Module):
                 loss.backward()
                 self.optimizer.step()
                 total_loss.append(loss.item())
-                if i % int(total_batches/5 + 1) == 0:
-                    self.logger.info(f'[{i}/{total_batches}] Loss: {loss.item():.4f}')
 
             s = ''
-            if not validation_loader:
+            if validation_loader:
                 valid_loss = self.evaluate(validation_loader)
-                s = f'\tValidation Loss: {valid_loss}'
+                s = f'\tValidation Loss: {valid_loss:.4f}'
             self.logger.info(f'Train Loss: {np.mean(total_loss):.3f}' + s)
-            
+
 
     def predict(self, test_loader, k=15):
         self.eval()        
         for _, (seq, target_item, lens) in enumerate(test_loader):
             scores = self.forward(seq.to(self.device), lens)
-            rank_list = (torch.argsort(scores[:,1:], descending=True)+1)[:,:k]  # TODO why +1
+            rank_list = (torch.argsort(scores[:,1:], descending=True) + 1)[:,:k]  # TODO why +1
 
         return rank_list.cpu()
 

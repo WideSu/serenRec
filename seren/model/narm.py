@@ -116,7 +116,7 @@ class NARM(nn.Module):
 
         self.logger.info('Start training...')
         for epoch in range(self.epochs):
-            self.logger.info('training epoch: ', epoch)
+            self.logger.info(f'training epoch: {epoch}')
             self.train()
             total_loss = []
             for i, (seq, target, lens) in enumerate(train_loader):

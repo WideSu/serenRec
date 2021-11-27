@@ -1,5 +1,7 @@
 import logging
 
+ACC_KPI = ['ndcg', 'mrr', 'hr']
+
 CAT_COLS = {
     'ml-100k': []
 }
@@ -42,6 +44,7 @@ def get_parameters(args):
         'description': args.desc,
         'dataset': args.dataset,
         'session_len': MAX_LEN,
+        'topk': args.topk,
     }
 
     model_params = {

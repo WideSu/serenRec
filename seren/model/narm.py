@@ -129,12 +129,16 @@ class NARM(nn.Module):
 
 
     def predict(self, test_loader, k=15):
-        self.eval()        
+        self.eval()  
+        preds, last_item = torch.tensor([]), torch.tensor([])
         for _, (seq, target_item, lens) in enumerate(test_loader):
             scores = self.forward(seq.to(self.device), lens)
             rank_list = (torch.argsort(scores[:,1:], descending=True) + 1)[:,:k]  # TODO why +1
 
-        return rank_list.cpu()
+            preds = torch.cat((preds, rank_list.cpu()), 0)
+            last_item = torch.cat((last_item, target_item), 0)
+
+        return preds, last_item
 
     def evaluate(self, validation_loader):
         self.eval()

@@ -1,12 +1,12 @@
 import argparse
 
 
-from seren.utils.data import Interactions
+from seren.utils.data import Interactions, Categories
 from seren.config import get_parameters, get_logger, ACC_KPI
 from seren.utils.functions import build_seqs, get_seq_from_df
 from seren.utils.model_selection import fold_out
 from seren.utils.dataset import SeqDataset, get_loader
-from seren.utils.metrics import accuracy_calculator
+from seren.utils.metrics import accuracy_calculator, diversity_calculator
 from seren.model.narm import NARM
 
 parser = argparse.ArgumentParser()
@@ -64,3 +64,6 @@ metrics = accuracy_calculator(preds, truth, ACC_KPI)
 foo = [f'{ACC_KPI[i].upper()}: {metrics[i]:5f}' for i in range(len(ACC_KPI))]
 logger.info(f'{" ".join(foo)}')
 
+cats = Categories(ds.item_map, ds.used_items, conf, logger)
+diveristy = diversity_calculator(preds, cats.item_cate_matrix)
+logger.info(f'Diversity: {diveristy:4f}')

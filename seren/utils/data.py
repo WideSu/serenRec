@@ -1,4 +1,6 @@
 import os
+import torch
+import torch.nn.functional as F
 import numpy as np
 import pandas as pd
 
@@ -51,6 +53,7 @@ class Interactions(object):
             )
         else:
             self.logger.error(f'cannot load data: {dataset_name}')
+            raise ValueError(f'cannot load data: {dataset_name}')
 
         self.df = df
 
@@ -113,6 +116,7 @@ class Interactions(object):
         self.logger.info(f'Finish filtering data, current length is: {len(self.df)}, user number: {self.user_num}, item number: {self.item_num}')
 
     def _reindex(self):
+        self.used_items = self.df[self.item_key].unique()
         self.user_map, self.df[self.user_key] = self._set_map(self.df, self.user_key)
         self.item_map, self.df[self.item_key] = self._set_map(self.df, self.item_key)
   
@@ -129,13 +133,69 @@ class Interactions(object):
 
 class Categories(object):
     # TODO read category info, used for IDLS
-    def __init__(self, config, logger):
+    def __init__(self, item_map, item_set, config, logger, category_key='category_vec'):
         self.config = config
         self.logger = logger
 
-        self.user_key = config['user_key']
+        self.item_set = item_set
+        self.item_num = len(item_set) + 1
         self.item_key = config['item_key'] 
-        self.session_key = config['session_key']
-        self.time_key = config['time_key']
+        self.item_map = item_map
+        self.category_key = category_key
 
         self._process_flow()
+
+    def _process_flow(self):
+        self._load_data()
+        self._reindex()
+        self._one_hot()
+        self._generate_cat_mat()
+
+    def _load_data(self):
+        dataset_name = self.config['dataset']
+        self.dataset_name = dataset_name
+        
+        if not os.path.exists(f'./dataset/{dataset_name}/'):
+            self.logger.error('unexisted dataset...')
+        if dataset_name == 'ml-100k':
+            df = pd.read_csv(
+                './dataset/ml-100k/u.item', 
+                delimiter='|', 
+                header=None,
+                encoding="ISO-8859-1"
+            )
+
+            genres = df.iloc[:,6:].values  # TODO not consider 'unknown'
+            df[self.category_key] = pd.Series(genres.tolist())
+            df.rename(columns={0: self.item_key}, inplace=True)
+            df = df[[self.item_key, self.category_key]].copy()
+            df = df[df[self.item_key].isin(self.item_set)].reset_index()
+            
+            self.n_cates = len(df[self.category_key][0]) + 1
+
+        else:
+            self.logger.error(f'cannot load item information data: {dataset_name}')
+            raise ValueError(f'cannot load item information data: {dataset_name}')
+
+        self.df = df
+
+    def _reindex(self):
+        self.df[self.item_key] = self.df[self.item_key].map(self.item_map)
+
+    def _generate_cat_mat(self):
+        item_cate_matrix = torch.zeros(self.item_num, self.n_cates)
+        self.df.sort_values(by=self.item_key, inplace=True)
+        item_cate = torch.tensor(self.df[self.category_key])
+        item_cate_matrix[1:, 1:] = item_cate
+
+        self.item_cate_matrix = item_cate_matrix
+
+    def _one_hot(self):
+        '''
+        TODO
+        some dataset categories are not like ml-100k, 
+        so we need to process these data to one-hot vector
+        '''        
+        # item_cate_matrix[1:, :] = F.one_hot(item_cate, num_classes=self.n_cates)  
+        pass
+

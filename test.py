@@ -5,11 +5,12 @@ from seren.utils.data import Interactions, Categories
 from seren.config import get_parameters, get_logger, ACC_KPI
 from seren.utils.functions import build_seqs, get_seq_from_df
 from seren.utils.model_selection import fold_out
-from seren.utils.dataset import SeqDataset, get_loader
+from seren.utils.dataset import SeqDataset
 from seren.utils.metrics import accuracy_calculator, diversity_calculator
 from seren.model.narm import NARM
 
 parser = argparse.ArgumentParser()
+parser.add_argument("--model", default="sgnn", type=str)
 parser.add_argument("--user_key", default="user_id", type=str)
 parser.add_argument("--item_key", default="item_id", type=str)
 parser.add_argument("--session_key", default="session_id", type=str)
@@ -48,13 +49,12 @@ test_dataset = SeqDataset(test_sequences, logger)
 logger.info(f'Length of Train: {len(train_dataset)}, Validation: {len(valid_dataset)}, Test: {len(test_dataset)}')
 logger.debug(ds.item_num)
 
-
-
-train_loader = get_loader(train_dataset, model_conf, shuffle=True)
-valid_loader = get_loader(valid_dataset, model_conf, shuffle=False)
-test_loader = get_loader(test_dataset, model_conf, shuffle=False)
-
+train_loader = train_dataset.get_loader(model_conf, shuffle=True)
+valid_loader = valid_dataset.get_loader(model_conf, shuffle=True)
+test_loader = test_dataset.get_loader(model_conf, shuffle=True)
 model = NARM(ds.item_num, model_conf, logger)
+
+
 
 model.fit(train_loader, valid_loader)
 

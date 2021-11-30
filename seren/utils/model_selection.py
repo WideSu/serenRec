@@ -37,7 +37,7 @@ def fold_out(data, args, split_ratio=0.8, clean_test=True, min_session_length=3,
     test = data[~data.session_id.isin(train_session_ids)].copy()
 
     if clean_test:
-        #  remove items in test not occur in train and remove sessions in test shorter than min_session_length
+        # remove items in test not occur in train and remove sessions in test shorter than min_session_length
         train_items = train[args['item_key']].unique()
         slen = test[args['session_key']].value_counts()
         good_sessions = slen[slen >= min_session_length].index

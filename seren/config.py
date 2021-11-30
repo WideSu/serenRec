@@ -35,6 +35,7 @@ def get_logger(file_name):
 
 def get_parameters(args):
     params = {
+        'momdel': args.model,
         'user_key': args.user_key,
         'item_key': args.item_key,
         'session_key': args.session_key,

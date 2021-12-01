@@ -35,7 +35,7 @@ def get_logger(file_name):
 
 def get_parameters(args):
     params = {
-        'momdel': args.model,
+        'model': args.model,
         'user_key': args.user_key,
         'item_key': args.item_key,
         'session_key': args.session_key,
@@ -58,6 +58,8 @@ def get_parameters(args):
         'lr_dc_step': args.lr_dc_step,
         'lr_dc': args.lr_dc,
         'n_layers': args.n_layers,
+
+        'step': args.step,
 
     }
 

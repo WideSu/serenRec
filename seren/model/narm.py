@@ -105,11 +105,10 @@ class NARM(nn.Module):
 
     def fit(self, train_loader, validation_loader=None):
         self.cuda() if torch.cuda.is_available() else self.cpu()
-
         self.logger.info('Start training...')
-        for epoch in range(1, self.epochs + 1):
-            self.logger.info(f'training epoch: {epoch}')
-            self.train()
+        
+        for epoch in range(1, self.epochs + 1):  
+            self.train()          
             total_loss = []
             for i, (seq, target, lens) in enumerate(train_loader):
                 self.optimizer.zero_grad()
@@ -123,7 +122,7 @@ class NARM(nn.Module):
             if validation_loader:
                 valid_loss = self.evaluate(validation_loader)
                 s = f'\tValidation Loss: {valid_loss:.4f}'
-            self.logger.info(f'Train Loss: {np.mean(total_loss):.3f}' + s)
+            self.logger.info(f'training epoch: {epoch}\tTrain Loss: {np.mean(total_loss):.3f}' + s)
 
 
     def predict(self, test_loader, k=15):
@@ -131,7 +130,7 @@ class NARM(nn.Module):
         preds, last_item = torch.tensor([]), torch.tensor([])
         for _, (seq, target_item, lens) in enumerate(test_loader):
             scores = self.forward(seq.to(self.device), lens)
-            rank_list = (torch.argsort(scores[:,1:], descending=True) + 1)[:,:k]  # TODO why +1
+            rank_list = (torch.argsort(scores[:,1:], descending=True) + 1)[:,:k]  # why +1: +1 to represent the actual code of items
 
             preds = torch.cat((preds, rank_list.cpu()), 0)
             last_item = torch.cat((last_item, target_item), 0)

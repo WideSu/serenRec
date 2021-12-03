@@ -1,23 +1,24 @@
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
-from .functions import pad_zero_for_seq
+from .functions import pad_zero_for_seq, build_seqs, get_seq_from_df
 
 
 class NARMDataset(Dataset):
-    def __init__(self, data, logger):
+    def __init__(self, data, conf, logger):
         '''
         Session sequences dataset class
 
         Parameters
         ----------
-        data : list
-            [[seqs],[targets]]
+        data : pd.DataFrame
+            dataframe by Data.py
         logger : logging.logger
             Logger used for recording process
         '''        
-        self.data = data
+        self.data = build_seqs(get_seq_from_df(data, conf), conf['session_len'])
+        # self.data is list of [[seqs],[targets]]
         self.logger = logger
-        logger.debug('Number of sessions: {}'.format(len(data[0])))
+        logger.debug('Number of sessions: {}'.format(len(self.data[0])))
         
     def __getitem__(self, index):
         session_items = self.data[0][index]
@@ -39,7 +40,8 @@ class NARMDataset(Dataset):
         return loader
 
 class SRGNNDataset(object):
-    def __init__(self, data, shuffle=False, graph=None):
+    def __init__(self, data, conf, shuffle=False, graph=None):
+        data = build_seqs(get_seq_from_df(data, conf), conf['session_len'])
         inputs = data[0]
         inputs, mask, len_max = self.data_masks(inputs, [0])
         self.inputs = np.asarray(inputs)

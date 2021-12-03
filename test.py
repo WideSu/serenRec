@@ -1,6 +1,4 @@
 import argparse
-import logging
-
 
 from seren.utils.data import Interactions, Categories
 from seren.config import get_parameters, get_logger, ACC_KPI
@@ -12,7 +10,7 @@ from seren.model.narm import NARM
 from seren.model.srgnn import SessionGraph
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--model", default="srgnn", type=str)
+parser.add_argument("--model", default="narm", type=str)
 parser.add_argument("--user_key", default="user_id", type=str)
 parser.add_argument("--item_key", default="item_id", type=str)
 parser.add_argument("--session_key", default="session_id", type=str)
@@ -41,14 +39,14 @@ ds = Interactions(conf, logger)
 train, test = fold_out(ds.df, conf)
 train, valid = fold_out(train, conf)
 
-train_sequences = build_seqs(get_seq_from_df(train, conf), conf['session_len'])
-valid_sequences = build_seqs(get_seq_from_df(valid, conf), conf['session_len'])
-test_sequences = build_seqs(get_seq_from_df(test, conf), conf['session_len'])
+# train_sequences = build_seqs(get_seq_from_df(train, conf), conf['session_len'])
+# valid_sequences = build_seqs(get_seq_from_df(valid, conf), conf['session_len'])
+# test_sequences = build_seqs(get_seq_from_df(test, conf), conf['session_len'])
 
 if conf['model'] == 'narm':
-    train_dataset = NARMDataset(train_sequences, logger)
-    valid_dataset = NARMDataset(valid_sequences, logger)
-    test_dataset = NARMDataset(test_sequences, logger)
+    train_dataset = NARMDataset(train, conf, logger)
+    valid_dataset = NARMDataset(valid, conf, logger)
+    test_dataset = NARMDataset(test, conf, logger)
     logger.info(f'Length of Train: {len(train_dataset)}, Validation: {len(valid_dataset)}, Test: {len(test_dataset)}')
     # logger.debug(ds.item_num)
     train_loader = train_dataset.get_loader(model_conf, shuffle=True)
@@ -58,12 +56,14 @@ if conf['model'] == 'narm':
     model.fit(train_loader, valid_loader)
     preds, truth = model.predict(test_loader, conf['topk'])
 elif conf['model'] == 'srgnn':
-    train_dataset = SRGNNDataset(train_sequences, shuffle=True)
-    valid_dataset = SRGNNDataset(valid_sequences, shuffle=False)
-    test_dataset = SRGNNDataset(test_sequences, shuffle=False)
+    train_dataset = SRGNNDataset(train, conf, shuffle=True)
+    valid_dataset = SRGNNDataset(valid, conf, shuffle=False)
+    test_dataset = SRGNNDataset(test, conf, shuffle=False)
     model = SessionGraph(ds.item_num, model_conf, logger)
     model.fit(train_dataset, valid_dataset)
     preds, truth = model.predict(test_dataset, conf['topk'])
+elif conf['model'] == 'gru4rec':
+    pass
 else:
     logger.error('Invalid model name')
     raise ValueError('Invalid model name')

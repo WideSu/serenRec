@@ -48,8 +48,8 @@ args = parser.parse_args()
 if torch.cuda.is_available(): torch.cuda.manual_seed(args.seed)
 
 conf, model_conf = get_parameters(args)
-logger = get_logger(__file__.split('.')[0] + f'_{conf["description"]}')
-# logger = get_logger(f'_{conf["description"]}')
+# logger = get_logger(__file__.split('.')[0] + f'_{conf["description"]}')
+logger = get_logger(f'_{conf["description"]}')
 
 ds = Interactions(conf, logger)
 train, test = fold_out(ds.df, conf)
@@ -74,14 +74,22 @@ elif conf['model'] == 'srgnn':
     model.fit(train_dataset, valid_dataset)
     preds, truth = model.predict(test_dataset, conf['topk'])
 elif conf['model'] == 'gru4rec':
-    train_loader = GRU4RECDataset(train, conf, model_conf['batch_size'])
-    valid_loader = GRU4RECDataset(valid, conf, model_conf['batch_size'], item_set=train_loader.item_set)
-    test_loader = GRU4RECDataset(test, conf, model_conf['batch_size'], item_set=train_loader.item_set)
+    suitable_batch = min(
+        model_conf['batch_size'],
+        train[conf['session_key']].nunique(), 
+        test[conf['session_key']].nunique(), 
+        valid[conf['session_key']].nunique()
+    )
+    if suitable_batch < model_conf['batch_size']:
+        model_conf['batch_size'] = suitable_batch
+        logger.warning(
+            f'Currrent batch size {model_conf["batch_size"]} is not suitable, the maximum tolerance for batch size is {suitable_batch}')
 
+    train_loader = GRU4RECDataset(train, conf, model_conf['batch_size'])
+    valid_loader = GRU4RECDataset(valid, conf, model_conf['batch_size'])
+    test_loader = GRU4RECDataset(test, conf, model_conf['batch_size'])
     model = GRU4REC(ds.item_num, model_conf, logger)
     model.fit(train_loader, valid_loader)
-    # for x in valid_loader:
-    #     print(x)
 else:
     logger.error('Invalid model name')
     raise ValueError('Invalid model name')

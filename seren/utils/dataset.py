@@ -1,10 +1,11 @@
+import torch
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
 from .functions import pad_zero_for_seq, build_seqs, get_seq_from_df
 
 
 class NARMDataset(Dataset):
-    def __init__(self, data, conf, logger):
+    def __init__(self, data, conf):
         '''
         Session sequences dataset class
 
@@ -14,11 +15,9 @@ class NARMDataset(Dataset):
             dataframe by Data.py
         logger : logging.logger
             Logger used for recording process
-        '''        
+        '''     
+        # self.data is list of [[seqs],[targets]]   
         self.data = build_seqs(get_seq_from_df(data, conf), conf['session_len'])
-        # self.data is list of [[seqs],[targets]]
-        self.logger = logger
-        logger.debug('Number of sessions: {}'.format(len(self.data[0])))
         
     def __getitem__(self, index):
         session_items = self.data[0][index]
@@ -100,4 +99,82 @@ class SRGNNDataset(object):
             alias_inputs.append([np.where(node == i)[0][0] for i in u_input])
         return alias_inputs, A, items, mask, targets
 
+class GRU4RECDataset(object):
+    def __init__(self, data, conf, batch_size, time_sort=False):
+        data[conf['item_key']] -= 1 # go back to codes from 0
+        self.df = data
+        self.batch_size = batch_size
+        self.session_key = conf['session_key']
+        self.item_key = conf['item_key']
+        self.time_key = conf['time_key']
+        self.time_sort = time_sort
+
+        self.df.sort_values([self.session_key, self.time_key], inplace=True)
+        self.click_offsets = self._get_click_offset()
+        self.session_idx_arr = self._order_session_idx()
+
+
+    def _get_click_offset(self):
+        self.batch_lim = self.df[self.session_key].nunique()
+        offsets = np.zeros(self.batch_lim + 1, dtype=np.int32)
+        offsets[1:] = self.df.groupby(self.session_key).size().cumsum()
+        return offsets
+
+    def _order_session_idx(self):
+        if self.time_sort:
+            sessions_start_time = self.df.groupby(self.session_key)[self.time_key].min().values
+            session_idx_arr = np.argsort(sessions_start_time)
+        else:
+            session_idx_arr = np.arange(self.df[self.session_key].nunique())
+        return session_idx_arr
+
+    def __iter__(self):
+        '''
+        Returns the iterator for producing session-parallel training mini-batches.
+
+        Yields
+        -------
+        input : torch.FloatTensor
+            Item indices that will be encoded as one-hot vectors later. size (B,)
+        target : torch.teFloatTensornsor
+            a Variable that stores the target item indices, size (B,)
+        masks : Numpy.array
+            indicating the positions of the sessions to be terminated
+        '''    
+        click_offsets = self.click_offsets
+        session_idx_arr = self.session_idx_arr
+        iters = np.arange(self.batch_size)
+        maxiter = iters.max()
+
+        start = click_offsets[session_idx_arr[iters]]
+        end = click_offsets[session_idx_arr[iters] + 1]
+        mask = []  # indicator for the sessions to be terminated
+        finished = False
+
+        while not finished:
+            minlen = (end - start).min()
+            # Item indices(for embedding) for clicks where the first sessions start
+            idx_target = self.df[self.item_key].values[start]
+
+            for i in range(minlen - 1):
+                # Build inputs & targets
+                idx_input = idx_target
+                idx_target = self.df[self.item_key].values[start + i + 1]
+                input = torch.LongTensor(idx_input)
+                target = torch.LongTensor(idx_target)
+                yield input, target, mask
+
+            # click indices where a particular session meets second-to-last element
+            start = start + (minlen - 1)
+            # see if how many sessions should terminate
+            mask = np.arange(len(iters))[(end - start) <= 1]
+            for idx in mask:
+                maxiter += 1
+                if maxiter >= len(click_offsets) - 1:
+                    finished = True
+                    break
+                # update the next starting/ending point
+                iters[idx] = maxiter
+                start[idx] = click_offsets[session_idx_arr[maxiter]]
+                end[idx] = click_offsets[session_idx_arr[maxiter] + 1]
 

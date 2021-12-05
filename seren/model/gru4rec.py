@@ -114,7 +114,7 @@ class GRU4REC(nn.Module):
                         logit_sampled = logit[:, target.view(-1)]
                         loss = self.loss_func(logit_sampled)
                         val_loss.append(loss.item())
-                s = f'\tValidation Loss: {np.mean(val_loss)}'
+                s = f'\tValidation Loss: {np.mean(val_loss):3f}'
 
             self.logger.info(f'training epoch: {epoch}\tTrain Loss: {np.mean(total_loss):.3f}' + s)
     

@@ -25,6 +25,8 @@ class Interactions(object):
         self.user_num = self.df[self.user_key].nunique()
         self.item_num = self.df[self.item_key].nunique()
 
+        self.df.sort_values([self.item_key, self.user_key, self.item_key], inplace=True)
+
         self.logger.info(f'Finish loading {self.dataset_name} data, current length is: {len(self.df)}, user number: {self.user_num}, item number: {self.item_num}')
 
     def _load_data(self):

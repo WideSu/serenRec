@@ -50,16 +50,24 @@ def get_parameters(args):
 
     model_params = {
         'batch_size': args.batch_size,
-        'item_embedding_dim': args.item_embedding_dim,
+        'item_embedding_dim': args.item_embedding_dim, # -1 for gru4rec means not use
         'hidden_size': args.hidden_size,
         'epochs': args.epochs,
+        'sigma': args.sigma,
+        'optimizer': args.optimizer,
         'learning_rate': args.lr,
         'l2': args.l2,
         'lr_dc_step': args.lr_dc_step,
         'lr_dc': args.lr_dc,
         'n_layers': args.n_layers,
-
         'step': args.step,
+        'dropout_hidden': args.dropout_hidden,
+        'dropout_input': args.dropout_input,
+        'final_act': args.final_act,
+        'loss_type': args.loss_type,
+        'wd': args.weight_decay,
+        'eps': args.eps,
+        'momentum': args.momentum,
 
     }
 

@@ -81,9 +81,9 @@ elif conf['model'] == 'gru4rec':
         valid[conf['session_key']].nunique()
     )
     if suitable_batch < model_conf['batch_size']:
-        model_conf['batch_size'] = suitable_batch
         logger.warning(
             f'Currrent batch size {model_conf["batch_size"]} is not suitable, the maximum tolerance for batch size is {suitable_batch}')
+        model_conf['batch_size'] = suitable_batch
 
     train_loader = GRU4RECDataset(train, conf, model_conf['batch_size'])
     valid_loader = GRU4RECDataset(valid, conf, model_conf['batch_size'])

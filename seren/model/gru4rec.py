@@ -37,7 +37,7 @@ class GRU4REC(nn.Module):
         wd : float
             weight decay
         loss_type : str
-            loss function type
+            loss function type, optional: 'BPR' 'TOP1' for GRU4REC, 'BPR-max' 'TOP1-max' for GRU4REC+
         '''    
         super(GRU4REC, self).__init__()
         self.use_cuda = True if torch.cuda.is_available() else False
@@ -306,6 +306,25 @@ class BPRLoss(nn.Module):
         loss = -torch.mean(F.logsigmoid(diff))
         return loss
 
+class BPR_max(nn.Module):
+    def __init__(self):
+        super(BPR_max, self).__init__()
+    def forward(self, logit):
+        logit_softmax = F.softmax(logit, dim=1)
+        diff = logit.diag().view(-1, 1).expand_as(logit) - logit
+        loss = -torch.log(torch.mean(logit_softmax * torch.sigmoid(diff)))
+        return loss
+
+class TOP1_max(nn.Module):
+    def __init__(self):
+        super(TOP1_max, self).__init__()
+
+    def forward(self, logit):
+        logit_softmax = F.softmax(logit, dim=1)
+        diff = -(logit.diag().view(-1, 1).expand_as(logit) - logit)
+        loss = torch.mean(logit_softmax * (torch.sigmoid(diff) + torch.sigmoid(logit ** 2)))
+        return loss
+
 class LossFunction(nn.Module):
     def __init__(self, loss_type='TOP1', use_cuda=False):
         """ An abstract loss function that can supports custom loss functions compatible with PyTorch."""
@@ -316,8 +335,13 @@ class LossFunction(nn.Module):
             self._loss_fn = TOP1Loss()
         elif loss_type == 'BPR':
             self._loss_fn = BPRLoss()
+        elif loss_type == 'TOP1-max':
+            self._loss_fn = TOP1_max()
+        elif loss_type == 'BPR-max':
+            self._loss_fn = BPR_max()
         else:
             raise NotImplementedError
 
     def forward(self, logit):
         return self._loss_fn(logit)
+

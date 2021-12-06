@@ -118,6 +118,22 @@ class GRU4REC(nn.Module):
 
             self.logger.info(f'training epoch: {epoch}\tTrain Loss: {np.mean(total_loss):.3f}' + s)
     
+    def predict(self, test_loader, k=15):
+        preds, last_item = torch.tensor([]).to(self.device), torch.tensor([]).to(self.device)
+        self.gru.flatten_parameters()
+        self.eval()
+        
+        with torch.no_grad():
+            hidden = self.init_hidden()
+            for input, target, _ in test_loader:
+                input = input.to(self.device)
+                target = target.to(self.device)
+                logit, hidden = self.forward(input, hidden)
+                rank_list = torch.argsort(logit, descending=True)[:,:k] + 1 # +1 to return to the pervious item codes
+                preds = torch.cat((preds, rank_list), 0)
+                last_item = torch.cat((last_item, target + 1), 0) # target also need to return to the previous item codes
+
+        return preds.cpu(), last_item.cpu()
     
     def set_optimizer(self, optimizer_type='Adagrad', lr=.05, momentum=0, weight_decay=0, eps=1e-6):
         '''

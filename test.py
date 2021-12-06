@@ -90,17 +90,19 @@ elif conf['model'] == 'gru4rec':
     test_loader = GRU4RECDataset(test, conf, model_conf['batch_size'])
     model = GRU4REC(ds.item_num, model_conf, logger)
     model.fit(train_loader, valid_loader)
+    preds, truth = model.predict(test_loader, conf['topk'])
+
 else:
     logger.error('Invalid model name')
     raise ValueError('Invalid model name')
 
 
 
-# logger.info(f"Finish predicting, start calculating {conf['model']}'s KPI...")
-# metrics = accuracy_calculator(preds, truth, ACC_KPI)
-# foo = [f'{ACC_KPI[i].upper()}: {metrics[i]:5f}' for i in range(len(ACC_KPI))]
-# logger.info(f'{" ".join(foo)}')
+logger.info(f"Finish predicting, start calculating {conf['model']}'s KPI...")
+metrics = accuracy_calculator(preds, truth, ACC_KPI)
+foo = [f'{ACC_KPI[i].upper()}: {metrics[i]:5f}' for i in range(len(ACC_KPI))]
+logger.info(f'{" ".join(foo)}')
 
-# cats = Categories(ds.item_map, ds.used_items, conf, logger)
-# diveristy = diversity_calculator(preds, cats.item_cate_matrix)
-# logger.info(f'Diversity: {diveristy:4f}')
+cats = Categories(ds.item_map, ds.used_items, conf, logger)
+diveristy = diversity_calculator(preds, cats.item_cate_matrix)
+logger.info(f'Diversity: {diveristy:4f}')

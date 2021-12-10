@@ -41,15 +41,15 @@ parser.add_argument('--weight_decay', default=0, type=float)
 parser.add_argument('--momentum', default=0, type=float)
 parser.add_argument('--eps', default=1e-6, type=float) #not used
 parser.add_argument('--final_act', default='tanh', type=str)
-parser.add_argument('--loss_type', default='TOP1', type=str) #type of loss function TOP1 / BPR for GRU4REC
+parser.add_argument('--loss_type', default='TOP1-max', type=str) #type of loss function TOP1 / BPR for GRU4REC, TOP1-max / BPR-max for GRU4REC+
 
 args = parser.parse_args()
 
 if torch.cuda.is_available(): torch.cuda.manual_seed(args.seed)
 
 conf, model_conf = get_parameters(args)
-# logger = get_logger(__file__.split('.')[0] + f'_{conf["description"]}')
-logger = get_logger(f'_{conf["description"]}')
+logger = get_logger(__file__.split('.')[0] + f'_{conf["description"]}')
+# logger = get_logger(f'_{conf["description"]}')
 
 ds = Interactions(conf, logger)
 train, test = fold_out(ds.df, conf)

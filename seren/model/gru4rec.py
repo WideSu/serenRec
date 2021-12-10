@@ -4,6 +4,12 @@ import torch.optim as optim
 import numpy as np
 import torch.nn.functional as F
 
+def softmax_neg(logit):
+    hm = 1.0 - torch.eye(*logit.size())
+    logit = logit * hm
+    e_x = torch.exp(logit - logit.max(dim=1, keepdim=True).values) * hm
+    return e_x / e_x.sum(dim=1, keepdim=True)
+
 class GRU4REC(nn.Module):
     def __init__(self, input_size, conf, logger):
         '''
@@ -310,9 +316,9 @@ class BPR_max(nn.Module):
     def __init__(self):
         super(BPR_max, self).__init__()
     def forward(self, logit):
-        logit_softmax = F.softmax(logit, dim=1)
+        logit_softmax = softmax_neg(logit) # F.softmax(logit, dim=1)
         diff = logit.diag().view(-1, 1).expand_as(logit) - logit
-        loss = -torch.log(torch.mean(logit_softmax * torch.sigmoid(diff)))
+        loss = torch.mean(-torch.log(torch.sum(torch.sigmoid(diff) * logit_softmax, dim=1) + 1e-24))
         return loss
 
 class TOP1_max(nn.Module):
@@ -320,9 +326,10 @@ class TOP1_max(nn.Module):
         super(TOP1_max, self).__init__()
 
     def forward(self, logit):
-        logit_softmax = F.softmax(logit, dim=1)
-        diff = -(logit.diag().view(-1, 1).expand_as(logit) - logit)
-        loss = torch.mean(logit_softmax * (torch.sigmoid(diff) + torch.sigmoid(logit ** 2)))
+        logit_softmax = softmax_neg(logit) # F.softmax(logit, dim=1)
+        diff = logit -logit.diag().view(-1, 1).expand_as(logit)
+        y = logit_softmax * (torch.sigmoid(diff) + torch.sigmoid(logit ** 2))
+        loss = torch.mean(torch.sum(y, dim=1))
         return loss
 
 class LossFunction(nn.Module):

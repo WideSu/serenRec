@@ -44,6 +44,8 @@ class GRU4REC(nn.Module):
             weight decay
         loss_type : str
             loss function type, optional: 'BPR' 'TOP1' for GRU4REC, 'BPR-max' 'TOP1-max' for GRU4REC+
+        l2 : float
+            BPR-max regularization
         '''    
         super(GRU4REC, self).__init__()
         self.use_cuda = True if torch.cuda.is_available() else False
@@ -71,7 +73,7 @@ class GRU4REC(nn.Module):
         self.epochs = conf['epochs']
         self.sigma = conf['sigma']
         
-        self.loss_func = LossFunction(conf['loss_type'], self.use_cuda)
+        self.loss_func = LossFunction(conf['loss_type'], conf['l2'], self.use_cuda)
 
         self.reset_parameters()
         self.set_optimizer(
@@ -313,12 +315,14 @@ class BPRLoss(nn.Module):
         return loss
 
 class BPR_max(nn.Module):
-    def __init__(self):
+    def __init__(self, bpr):
         super(BPR_max, self).__init__()
+        self.bpr = bpr
     def forward(self, logit):
         logit_softmax = softmax_neg(logit) # F.softmax(logit, dim=1)
         diff = logit.diag().view(-1, 1).expand_as(logit) - logit
-        loss = torch.mean(-torch.log(torch.sum(torch.sigmoid(diff) * logit_softmax, dim=1) + 1e-24))
+        loss = torch.mean(
+            -torch.log(torch.sum(torch.sigmoid(diff) * logit_softmax, dim=1) + 1e-24) + self.bpr * torch.sum((logit**2)*logit_softmax, axis=1))
         return loss
 
 class TOP1_max(nn.Module):
@@ -333,7 +337,7 @@ class TOP1_max(nn.Module):
         return loss
 
 class LossFunction(nn.Module):
-    def __init__(self, loss_type='TOP1', use_cuda=False):
+    def __init__(self, loss_type='TOP1', bpr=0, use_cuda=False):
         """ An abstract loss function that can supports custom loss functions compatible with PyTorch."""
         super(LossFunction, self).__init__()
         self.loss_type = loss_type
@@ -345,7 +349,7 @@ class LossFunction(nn.Module):
         elif loss_type == 'TOP1-max':
             self._loss_fn = TOP1_max()
         elif loss_type == 'BPR-max':
-            self._loss_fn = BPR_max()
+            self._loss_fn = BPR_max(bpr)
         else:
             raise NotImplementedError
 

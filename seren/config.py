@@ -68,7 +68,7 @@ def get_parameters(args):
         'wd': args.weight_decay,
         'eps': args.eps,
         'momentum': args.momentum,
-
+        'pop_n': args.pop_n,
     }
 
     return params, model_params

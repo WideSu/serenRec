@@ -4,14 +4,15 @@ import argparse
 from seren.utils.data import Interactions, Categories
 from seren.config import get_parameters, get_logger, ACC_KPI
 from seren.utils.model_selection import fold_out
-from seren.utils.dataset import NARMDataset, SRGNNDataset, GRU4RECDataset
+from seren.utils.dataset import NARMDataset, SRGNNDataset, GRU4RECDataset, SPOPDataset
 from seren.utils.metrics import accuracy_calculator, diversity_calculator
 from seren.model.narm import NARM
 from seren.model.srgnn import SessionGraph
 from seren.model.gru4rec import GRU4REC
+from seren.model.spop import SessionPop
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--model", default="gru4rec", type=str)
+parser.add_argument("--model", default="spop", type=str)
 parser.add_argument("--user_key", default="user_id", type=str)
 parser.add_argument("--item_key", default="item_id", type=str)
 parser.add_argument("--session_key", default="session_id", type=str)
@@ -26,13 +27,11 @@ parser.add_argument('--item_embedding_dim', type=int, default=100, help='dimensi
 parser.add_argument('--hidden_size', type=int, default=100, help='dimension of linear layer')
 parser.add_argument('--epochs', type=int, default=20, help='training epochs number')
 parser.add_argument('--lr', type=float, default=0.001, help='learning rate')
-parser.add_argument('--l2', type=float, default=1e-5, help='l2 penalty')
+parser.add_argument('--l2', type=float, default=1e-5, help='l2/BPR penalty')
 parser.add_argument('--lr_dc_step', type=int, default=3, help='the number of steps after which the learning rate decay')
 parser.add_argument('--lr_dc', type=float, default=0.1, help='learning rate decay rate')
 parser.add_argument('--n_layers', type=int, default=1, help='the number of gru layers')
-
 parser.add_argument('--step', type=int, default=1, help='gnn propogation steps')
-
 parser.add_argument("-sigma", type=float, default=None, help="init weight -1: range [-sigma, sigma], -2: range [0, sigma]") # weight initialization [-sigma sigma] in literature
 parser.add_argument('--dropout_input', default=0, type=float) #0.5 for TOP and 0.3 for BPR
 parser.add_argument('--dropout_hidden', default=0, type=float) #0.5 for TOP and 0.3 for BPR
@@ -41,7 +40,8 @@ parser.add_argument('--weight_decay', default=0, type=float)
 parser.add_argument('--momentum', default=0, type=float)
 parser.add_argument('--eps', default=1e-6, type=float) #not used
 parser.add_argument('--final_act', default='tanh', type=str)
-parser.add_argument('--loss_type', default='TOP1-max', type=str) #type of loss function TOP1 / BPR for GRU4REC, TOP1-max / BPR-max for GRU4REC+
+parser.add_argument('--loss_type', default='BPR-max', type=str) #type of loss function TOP1 / BPR for GRU4REC, TOP1-max / BPR-max for GRU4REC+
+parser.add_argument('--pop_n', type=int, default=100, help='top popular N items')
 
 args = parser.parse_args()
 
@@ -91,7 +91,12 @@ elif conf['model'] == 'gru4rec':
     model = GRU4REC(ds.item_num, model_conf, logger)
     model.fit(train_loader, valid_loader)
     preds, truth = model.predict(test_loader, conf['topk'])
-
+elif conf['model'] == 'spop':
+    train = train.append(valid)
+    test_dataset = SPOPDataset(test, conf)
+    model = SessionPop(conf, model_conf, logger)
+    model.fit(train)
+    preds, truth = model.predict(test_dataset)
 else:
     logger.error('Invalid model name')
     raise ValueError('Invalid model name')

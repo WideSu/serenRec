@@ -38,6 +38,17 @@ class NARMDataset(Dataset):
 
         return loader
 
+
+class SPOPDataset(object):
+    def __init__(self, data, conf):
+        self.data = build_seqs(get_seq_from_df(data, conf), conf['session_len'])
+
+    def __iter__(self):
+        seqs = self.data[0]
+        tar = self.data[1]
+        for i in range(len(tar)):
+            yield seqs[i], tar[i]
+
 class SRGNNDataset(object):
     def __init__(self, data, conf, shuffle=False, graph=None):
         data = build_seqs(get_seq_from_df(data, conf), conf['session_len'])

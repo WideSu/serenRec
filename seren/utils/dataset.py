@@ -39,7 +39,7 @@ class NARMDataset(Dataset):
         return loader
 
 
-class SPOPDataset(object):
+class ConventionDataset(object):
     def __init__(self, data, conf):
         self.data = build_seqs(get_seq_from_df(data, conf), conf['session_len'])
 

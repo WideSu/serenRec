@@ -69,6 +69,9 @@ def get_parameters(args):
         'eps': args.eps,
         'momentum': args.momentum,
         'pop_n': args.pop_n,
+        'n_sims': args.n_sims,
+        'lambda': args.lmbd,
+        'alpha': args.alpha,
     }
 
     return params, model_params

@@ -41,7 +41,7 @@ def fold_out(data, args, split_ratio=0.8, clean_test=True, min_session_length=3,
         train_items = train[args['item_key']].unique()
         slen = test[args['session_key']].value_counts()
         good_sessions = slen[slen >= min_session_length].index
-        test = test.query(f"{args['session_key']} in @good_sessions and {args['item_key']} in @train_items").copy()
+        test = test[test[args['session_key']].isin(good_sessions) & test[args['item_key']].isin(train_items)].copy()
 
     return train, test
 

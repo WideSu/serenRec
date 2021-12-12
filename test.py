@@ -4,15 +4,15 @@ import argparse
 from seren.utils.data import Interactions, Categories
 from seren.config import get_parameters, get_logger, ACC_KPI
 from seren.utils.model_selection import fold_out
-from seren.utils.dataset import NARMDataset, SRGNNDataset, GRU4RECDataset, SPOPDataset
+from seren.utils.dataset import NARMDataset, SRGNNDataset, GRU4RECDataset, ConventionDataset
 from seren.utils.metrics import accuracy_calculator, diversity_calculator
 from seren.model.narm import NARM
 from seren.model.srgnn import SessionGraph
 from seren.model.gru4rec import GRU4REC
-from seren.model.spop import SessionPop
+from seren.model.conventions import SessionPop, ItemKNN
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--model", default="spop", type=str)
+parser.add_argument("--model", default="itemknn", type=str)
 parser.add_argument("--user_key", default="user_id", type=str)
 parser.add_argument("--item_key", default="item_id", type=str)
 parser.add_argument("--session_key", default="session_id", type=str)
@@ -42,20 +42,24 @@ parser.add_argument('--eps', default=1e-6, type=float) #not used
 parser.add_argument('--final_act', default='tanh', type=str)
 parser.add_argument('--loss_type', default='BPR-max', type=str) #type of loss function TOP1 / BPR for GRU4REC, TOP1-max / BPR-max for GRU4REC+
 parser.add_argument('--pop_n', type=int, default=100, help='top popular N items')
+parser.add_argument('--n_sims', type=int, default=100, help='non-zero scores to the N most similar items given back')
+parser.add_argument('--lmbd', type=float, default=20, help='Regularization. Discounts the similarity of rare items')
+parser.add_argument('--alpha', type=float, default=0.5, help='Balance between normalizing with the supports of the two items')
 
 args = parser.parse_args()
 
 if torch.cuda.is_available(): torch.cuda.manual_seed(args.seed)
 
 conf, model_conf = get_parameters(args)
-logger = get_logger(__file__.split('.')[0] + f'_{conf["description"]}')
-# logger = get_logger(f'_{conf["description"]}')
+# logger = get_logger(__file__.split('.')[0] + f'_{conf["description"]}')
+logger = get_logger(f'_{conf["description"]}')
 
 ds = Interactions(conf, logger)
-train, test = fold_out(ds.df, conf)
-train, valid = fold_out(train, conf)
 
 if conf['model'] == 'narm':
+    train, test = fold_out(ds.df, conf)
+    train, valid = fold_out(train, conf)
+
     train_dataset = NARMDataset(train, conf)
     valid_dataset = NARMDataset(valid, conf)
     test_dataset = NARMDataset(test, conf)
@@ -67,6 +71,9 @@ if conf['model'] == 'narm':
     model.fit(train_loader, valid_loader)
     preds, truth = model.predict(test_loader, conf['topk'])
 elif conf['model'] == 'srgnn':
+    train, test = fold_out(ds.df, conf)
+    train, valid = fold_out(train, conf)
+
     train_dataset = SRGNNDataset(train, conf, shuffle=True)
     valid_dataset = SRGNNDataset(valid, conf, shuffle=False)
     test_dataset = SRGNNDataset(test, conf, shuffle=False)
@@ -74,6 +81,9 @@ elif conf['model'] == 'srgnn':
     model.fit(train_dataset, valid_dataset)
     preds, truth = model.predict(test_dataset, conf['topk'])
 elif conf['model'] == 'gru4rec':
+    train, test = fold_out(ds.df, conf)
+    train, valid = fold_out(train, conf)
+
     suitable_batch = min(
         model_conf['batch_size'],
         train[conf['session_key']].nunique(), 
@@ -92,16 +102,20 @@ elif conf['model'] == 'gru4rec':
     model.fit(train_loader, valid_loader)
     preds, truth = model.predict(test_loader, conf['topk'])
 elif conf['model'] == 'spop':
-    train = train.append(valid)
-    test_dataset = SPOPDataset(test, conf)
+    train, test = fold_out(ds.df, conf)
+    test_dataset = ConventionDataset(test, conf)
     model = SessionPop(conf, model_conf, logger)
+    model.fit(train)
+    preds, truth = model.predict(test_dataset)
+elif conf['model'] == 'itemknn':
+    train, test = fold_out(ds.df, conf)
+    test_dataset = ConventionDataset(test, conf)
+    model = ItemKNN(conf, model_conf, logger)
     model.fit(train)
     preds, truth = model.predict(test_dataset)
 else:
     logger.error('Invalid model name')
     raise ValueError('Invalid model name')
-
-
 
 logger.info(f"Finish predicting, start calculating {conf['model']}'s KPI...")
 metrics = accuracy_calculator(preds, truth, ACC_KPI)

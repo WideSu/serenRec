@@ -17,22 +17,25 @@ def to_csv(data, name, params):
         logger.error(f'Invalid variable to write into {op}')
 
 def build_seqs(seqs, max_len):
-    user_seqs, targets = [], []
+    user_seqs, targets, sess = [], [], []
     for seq in seqs:
         items = seq[2]
+        s_id = seq[1]
         tmp_len = len(items) if len(items) <= max_len else max_len
         for j in range(tmp_len - 1):
             targets.append([items[j + 1]])
             user_seq = items[0:j + 1]
             user_seqs.append(user_seq)
+            sess.append(s_id)
 
         if len(items) > max_len:
             for j in range(max_len, len(items)):
                 targets.append([items[j]])
                 user_seq = items[j - max_len + 1:j]
                 user_seqs.append(user_seq)
+                sess.append(s_id)
     
-    return user_seqs, targets
+    return user_seqs, targets, sess
 
 def get_seq_from_df(df, args):
     dic = df[[args['user_key'], args['session_key']]].drop_duplicates()

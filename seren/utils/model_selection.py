@@ -1,4 +1,4 @@
-def fold_out(data, args, split_ratio=0.8, clean_test=True, min_session_length=3, time_aware=True):
+def fold_out(data, args, split_ratio=0.8, clean_test=True, min_session_length=3, time_aware=True, train_items=None):
     '''
     user-level fold-out split
 
@@ -38,10 +38,10 @@ def fold_out(data, args, split_ratio=0.8, clean_test=True, min_session_length=3,
 
     if clean_test:
         # remove items in test not occur in train and remove sessions in test shorter than min_session_length
-        train_items = train[args['item_key']].unique()
+        train_items1 = train[args['item_key']].unique() if train_items is None else train_items
         slen = test[args['session_key']].value_counts()
         good_sessions = slen[slen >= min_session_length].index
-        test = test[test[args['session_key']].isin(good_sessions) & test[args['item_key']].isin(train_items)].copy()
+        test = test[test[args['session_key']].isin(good_sessions) & test[args['item_key']].isin(train_items1)].copy()
 
     return train, test
 

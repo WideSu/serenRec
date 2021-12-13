@@ -9,10 +9,10 @@ from seren.utils.metrics import accuracy_calculator, diversity_calculator
 from seren.model.narm import NARM
 from seren.model.srgnn import SessionGraph
 from seren.model.gru4rec import GRU4REC
-from seren.model.conventions import SessionPop, ItemKNN
+from seren.model.conventions import SessionPop, ItemKNN, BPRMF
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--model", default="itemknn", type=str)
+parser.add_argument("--model", default="bprmf", type=str)
 parser.add_argument("--user_key", default="user_id", type=str)
 parser.add_argument("--item_key", default="item_id", type=str)
 parser.add_argument("--session_key", default="session_id", type=str)
@@ -45,14 +45,16 @@ parser.add_argument('--pop_n', type=int, default=100, help='top popular N items'
 parser.add_argument('--n_sims', type=int, default=100, help='non-zero scores to the N most similar items given back')
 parser.add_argument('--lmbd', type=float, default=20, help='Regularization. Discounts the similarity of rare items')
 parser.add_argument('--alpha', type=float, default=0.5, help='Balance between normalizing with the supports of the two items')
+parser.add_argument('--lambda_session', type=float, default=0, help='session embedding penalty')
+parser.add_argument('--lambda_item', type=float, default=0, help='item embedding penalty')
 
 args = parser.parse_args()
 
 if torch.cuda.is_available(): torch.cuda.manual_seed(args.seed)
 
 conf, model_conf = get_parameters(args)
-# logger = get_logger(__file__.split('.')[0] + f'_{conf["description"]}')
-logger = get_logger(f'_{conf["description"]}')
+logger = get_logger(__file__.split('.')[0] + f'_{conf["description"]}')
+# logger = get_logger(f'_{conf["description"]}')
 
 ds = Interactions(conf, logger)
 
@@ -111,6 +113,12 @@ elif conf['model'] == 'itemknn':
     train, test = fold_out(ds.df, conf)
     test_dataset = ConventionDataset(test, conf)
     model = ItemKNN(conf, model_conf, logger)
+    model.fit(train)
+    preds, truth = model.predict(test_dataset)
+elif conf['model'] == 'bprmf':
+    train, test = fold_out(ds.df, conf)
+    test_dataset = ConventionDataset(test, conf)
+    model = BPRMF(conf, model_conf, logger)
     model.fit(train)
     preds, truth = model.predict(test_dataset)
 else:

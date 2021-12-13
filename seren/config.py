@@ -72,6 +72,8 @@ def get_parameters(args):
         'n_sims': args.n_sims,
         'lambda': args.lmbd,
         'alpha': args.alpha,
+        'lambda_item': args.lambda_item,
+        'lambda_session': args.lambda_session,
     }
 
     return params, model_params

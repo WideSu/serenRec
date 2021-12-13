@@ -41,13 +41,14 @@ class NARMDataset(Dataset):
 
 class ConventionDataset(object):
     def __init__(self, data, conf):
-        self.data = build_seqs(get_seq_from_df(data, conf), conf['session_len'])
+        self.seq_data = build_seqs(get_seq_from_df(data, conf), conf['session_len'])
 
     def __iter__(self):
-        seqs = self.data[0]
-        tar = self.data[1]
+        seqs = self.seq_data[0]
+        tar = self.seq_data[1]
+        sess = self.seq_data[2]
         for i in range(len(tar)):
-            yield seqs[i], tar[i]
+            yield seqs[i], tar[i], sess[i]
 
 class SRGNNDataset(object):
     def __init__(self, data, conf, shuffle=False, graph=None):

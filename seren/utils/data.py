@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 import pandas as pd
 import datetime as dt
+from ..config import DATA_PATH
 
 class Interactions(object): 
     def __init__(self, config, logger):
@@ -47,18 +48,18 @@ class Interactions(object):
         dataset_name = self.config['dataset']
         self.dataset_name = dataset_name
         
-        if not os.path.exists(f'./dataset/{dataset_name}/'):
+        if not os.path.exists(f'{DATA_PATH}{dataset_name}/'):
             self.logger.error('unexisted dataset...')
         if dataset_name == 'ml-100k':
             self.df = pd.read_csv(
-                './dataset/ml-100k/u.data', 
+                f'{DATA_PATH}ml-100k/u.data', 
                 delimiter='\t', 
                 names=[self.user_key, self.item_key, 'rating', self.time_key]
             )
             self._make_sessions()
         elif dataset_name == 'yoochoose':
             df = pd.read_csv(
-                './dataset/yoochoose/yoochoose-clicks.dat',
+                f'{DATA_PATH}yoochoose/yoochoose-clicks.dat',
                 sep=',', header=None, usecols=[0,1,2], dtype={0:np.int32, 1:str, 2:np.int64},
                 names=[self.session_key, 'TimeStr', self.item_key] #'SessionId', 'TimeStr', 'ItemId'
             )
@@ -183,11 +184,11 @@ class Categories(object):
         dataset_name = self.config['dataset']
         self.dataset_name = dataset_name
         
-        if not os.path.exists(f'./dataset/{dataset_name}/'):
+        if not os.path.exists(f'{DATA_PATH}{dataset_name}/'):
             self.logger.error('unexisted dataset...')
         if dataset_name == 'ml-100k':
             df = pd.read_csv(
-                './dataset/ml-100k/u.item', 
+                f'{DATA_PATH}ml-100k/u.item', 
                 delimiter='|', 
                 header=None,
                 encoding="ISO-8859-1"

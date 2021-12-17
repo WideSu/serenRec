@@ -7,6 +7,7 @@ CAT_COLS = {
 }
 
 MAX_LEN = 1000
+DATA_PATH = './dataset/'
 
 def get_logger(file_name):
     logger = logging.getLogger(__file__)

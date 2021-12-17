@@ -3,13 +3,13 @@ import argparse
 
 from seren.utils.data import Interactions, Categories
 from seren.config import get_parameters, get_logger, ACC_KPI
-from seren.utils.model_selection import fold_out
+from seren.utils.model_selection import fold_out, train_test_split
 from seren.utils.dataset import NARMDataset, SRGNNDataset, GRU4RECDataset, ConventionDataset
 from seren.utils.metrics import accuracy_calculator, diversity_calculator
 from seren.model.narm import NARM
 from seren.model.srgnn import SessionGraph
 from seren.model.gru4rec import GRU4REC
-from seren.model.conventions import SessionPop, ItemKNN, BPRMF
+from seren.model.conventions import Pop, SessionPop, ItemKNN, BPRMF
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--model", default="bprmf", type=str)
@@ -103,20 +103,26 @@ elif conf['model'] == 'gru4rec':
     model = GRU4REC(ds.item_num, model_conf, logger)
     model.fit(train_loader, valid_loader)
     preds, truth = model.predict(test_loader, conf['topk'])
+elif conf['model'] == 'pop':
+    train, test = train_test_split(ds.df, conf, logger) #fold_out(ds.df, conf)
+    test_dataset = ConventionDataset(test, conf)
+    model = Pop(conf, model_conf, logger)
+    model.fit(train)
+    preds, truth = model.predict(test_dataset)
 elif conf['model'] == 'spop':
-    train, test = fold_out(ds.df, conf)
+    train, test = train_test_split(ds.df, conf, logger) #fold_out(ds.df, conf)
     test_dataset = ConventionDataset(test, conf)
     model = SessionPop(conf, model_conf, logger)
     model.fit(train)
     preds, truth = model.predict(test_dataset)
 elif conf['model'] == 'itemknn':
-    train, test = fold_out(ds.df, conf)
+    train, test = train_test_split(ds.df, conf)
     test_dataset = ConventionDataset(test, conf)
     model = ItemKNN(conf, model_conf, logger)
     model.fit(train)
     preds, truth = model.predict(test_dataset)
 elif conf['model'] == 'bprmf':
-    train, test = fold_out(ds.df, conf)
+    train, test = train_test_split(ds.df, conf)
     test_dataset = ConventionDataset(test, conf)
     model = BPRMF(conf, model_conf, logger)
     model.fit(train)
@@ -130,6 +136,6 @@ metrics = accuracy_calculator(preds, truth, ACC_KPI)
 foo = [f'{ACC_KPI[i].upper()}: {metrics[i]:5f}' for i in range(len(ACC_KPI))]
 logger.info(f'{" ".join(foo)}')
 
-cats = Categories(ds.item_map, ds.used_items, conf, logger)
-diveristy = diversity_calculator(preds, cats.item_cate_matrix)
-logger.info(f'Diversity: {diveristy:4f}')
+#cats = Categories(ds.item_map, ds.used_items, conf, logger)
+#diveristy = diversity_calculator(preds, cats.item_cate_matrix)
+#logger.info(f'Diversity: {diveristy:4f}')

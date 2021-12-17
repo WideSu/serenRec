@@ -116,13 +116,13 @@ elif conf['model'] == 'spop':
     model.fit(train)
     preds, truth = model.predict(test_dataset)
 elif conf['model'] == 'itemknn':
-    train, test = train_test_split(ds.df, conf)
+    train, test = train_test_split(ds.df, conf, logger)
     test_dataset = ConventionDataset(test, conf)
     model = ItemKNN(conf, model_conf, logger)
     model.fit(train)
     preds, truth = model.predict(test_dataset)
 elif conf['model'] == 'bprmf':
-    train, test = train_test_split(ds.df, conf)
+    train, test = train_test_split(ds.df, conf, logger)
     test_dataset = ConventionDataset(test, conf)
     model = BPRMF(conf, model_conf, logger)
     model.fit(train)

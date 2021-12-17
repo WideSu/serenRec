@@ -19,8 +19,8 @@ def to_csv(data, name, params):
 def build_seqs(seqs, max_len):
     user_seqs, targets, sess = [], [], []
     for seq in seqs:
-        items = seq[2]
-        s_id = seq[1]
+        s_id = seq[0]
+        items = seq[1]
         tmp_len = len(items) if len(items) <= max_len else max_len
         for j in range(tmp_len - 1):
             targets.append([items[j + 1]])
@@ -38,11 +38,13 @@ def build_seqs(seqs, max_len):
     return user_seqs, targets, sess
 
 def get_seq_from_df(df, args):
-    dic = df[[args['user_key'], args['session_key']]].drop_duplicates()
+    dic = df[args['session_key']].drop_duplicates() #[args['user_key'], ]
     seq = []
-    for u, s in dic.values:
-        items = df.query(f'{args["user_key"]} == {u} and {args["session_key"]} == {s}')[args["item_key"]].tolist()
-        seq.append([u, s, items])
+    # u,
+    for s in dic.values:
+        #items = df.query(f'{args["user_key"]} == {u} and {args["session_key"]} == {s}')[args["item_key"]].tolist()
+        items = df.query(f'{args["session_key"]} == {s}')[args["item_key"]].tolist()
+        seq.append([s, items])
 
     return seq
 

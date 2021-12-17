@@ -1,3 +1,5 @@
+import numpy as np
+
 def fold_out(data, args, split_ratio=0.8, clean_test=True, min_session_length=3, time_aware=True, train_items=None):
     '''
     user-level fold-out split
@@ -45,3 +47,23 @@ def fold_out(data, args, split_ratio=0.8, clean_test=True, min_session_length=3,
 
     return train, test
 
+def train_test_split(data, args, logger, clean_test=True, min_session_length=2, n_days=1):
+    Time = args['time_key']
+    SessionId = args['session_key']
+    ItemId = args['item_key']
+    tmax = data[Time].max()
+    session_max_times = data.groupby(SessionId)[Time].max()
+    session_train = session_max_times[session_max_times < tmax - (86400*n_days)].index
+    session_test = session_max_times[session_max_times >= tmax - (86400*n_days)].index
+    train = data[np.in1d(data[SessionId], session_train)]
+    test = data[np.in1d(data[SessionId], session_test)]
+    if clean_test:
+        test = test[np.in1d(test[ItemId], train[ItemId])]
+        tslength = test.groupby(SessionId).size()
+        test = test[np.in1d(test[SessionId], tslength[tslength>=min_session_length].index)]
+    logger.info('Full train set\n\tEvents: {}\n\tSessions: {}\n\tItems: {}'.format(len(train), train[SessionId].nunique(), train[ItemId].nunique()))
+    #train.to_csv(PATH_TO_PROCESSED_DATA + 'rsc15_train_full.txt', sep='\t', index=False)
+    logger.info('Test set\n\tEvents: {}\n\tSessions: {}\n\tItems: {}'.format(len(test), test[SessionId].nunique(), test[ItemId].nunique()))
+    #test.to_csv(PATH_TO_PROCESSED_DATA + 'rsc15_test.txt', sep='\t', index=False)
+    
+    return train, test

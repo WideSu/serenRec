@@ -6,7 +6,7 @@ CAT_COLS = {
     'ml-100k': []
 }
 
-MAX_LEN = 10
+MAX_LEN = 1000
 
 def get_logger(file_name):
     logger = logging.getLogger(__file__)

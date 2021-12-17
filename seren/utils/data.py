@@ -3,6 +3,7 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 import pandas as pd
+import datetime as dt
 
 class Interactions(object): 
     def __init__(self, config, logger):
@@ -18,16 +19,17 @@ class Interactions(object):
 
     def _process_flow(self):
         self._load_data()
-        self._make_sessions()
-        self._core_filter()
+        #self._make_sessions()
+        #self._core_filter()
+        self._filter()
         self._reindex()
 
-        self.user_num = self.df[self.user_key].nunique()
+        #self.user_num = self.df[self.user_key].nunique()
         self.item_num = self.df[self.item_key].nunique()
 
-        self.df.sort_values([self.item_key, self.user_key, self.item_key], inplace=True)
+        #self.df.sort_values([self.item_key, self.user_key, self.item_key], inplace=True)
 
-        self.logger.info(f'Finish loading {self.dataset_name} data, current length is: {len(self.df)}, user number: {self.user_num}, item number: {self.item_num}')
+        self.logger.info(f'Finish loading {self.dataset_name} data, current length is: {len(self.df)}, item number: {self.item_num}')
 
     def _load_data(self):
         '''
@@ -48,16 +50,26 @@ class Interactions(object):
         if not os.path.exists(f'./dataset/{dataset_name}/'):
             self.logger.error('unexisted dataset...')
         if dataset_name == 'ml-100k':
-            df = pd.read_csv(
+            self.df = pd.read_csv(
                 './dataset/ml-100k/u.data', 
                 delimiter='\t', 
                 names=[self.user_key, self.item_key, 'rating', self.time_key]
             )
+            self._make_sessions()
+        elif dataset_name == 'yoochoose':
+            df = pd.read_csv(
+                './dataset/yoochoose/yoochoose-clicks.dat',
+                sep=',', header=None, usecols=[0,1,2], dtype={0:np.int32, 1:str, 2:np.int64},
+                names=[self.session_key, 'TimeStr', self.item_key] #'SessionId', 'TimeStr', 'ItemId'
+            )
+            df[self.time_key] = df.TimeStr.apply(lambda x: dt.datetime.strptime(x, '%Y-%m-%dT%H:%M:%S.%fZ').timestamp()) #This is not UTC. It does not really matter.
+            del(df['TimeStr'])
+            self.df = df
         else:
             self.logger.error(f'cannot load data: {dataset_name}')
             raise ValueError(f'cannot load data: {dataset_name}')
 
-        self.df = df
+        #self.df = df
 
 
     def _set_map(self, df, key):
@@ -116,10 +128,24 @@ class Interactions(object):
         self.item_num = self.df[self.item_key].nunique()
 
         self.logger.info(f'Finish filtering data, current length is: {len(self.df)}, user number: {self.user_num}, item number: {self.item_num}')
+        
+    def _filter(self, pop_num=5, bad_sess_len=1):
+        data = self.df
+        session_lengths = data.groupby(self.session_key).size()
+        data = data[np.in1d(data[self.session_key], session_lengths[session_lengths>bad_sess_len].index)]
+        item_supports = data.groupby(self.item_key).size()
+        data = data[np.in1d(data[self.item_key], item_supports[item_supports>=pop_num].index)]
+        session_lengths = data.groupby(self.session_key).size()
+        data = data[np.in1d(data[self.session_key], session_lengths[session_lengths>bad_sess_len].index)]
+        self.df = data
+        
+        self.item_num = self.df[self.item_key].nunique()
 
+        self.logger.info(f'Finish filtering data, current length is: {len(self.df)}, item number: {self.item_num}')
+        
     def _reindex(self):
         self.used_items = self.df[self.item_key].unique()
-        self.user_map, self.df[self.user_key] = self._set_map(self.df, self.user_key)
+        #self.user_map, self.df[self.user_key] = self._set_map(self.df, self.user_key)
         self.item_map, self.df[self.item_key] = self._set_map(self.df, self.item_key)
   
     

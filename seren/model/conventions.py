@@ -1,13 +1,11 @@
 import pandas as pd
 import numpy as np
 import torch
+from collections import Counter
 
-class SessionPop(object):
+class Pop(object):
     def __init__(self, conf, params, logger):
         '''
-        Session popularity predictor that gives higher scores to items with higher number of occurrences in the session. 
-        
-        Ties are broken up by adding the popularity score of the item.
 
         Parameters
         ----------
@@ -28,15 +26,72 @@ class SessionPop(object):
         self.pop_list = self.pop_list.head(self.top_n)
 
     def predict(self, test, k=15):
-        preds, last_item = torch.tensor([]), torch.tensor([])
+        preds, last_item = torch.LongTensor([]), torch.LongTensor([])
         for seq, target, _ in test:
-            cands_idx = ~np.in1d(self.pop_list.index, seq)
-            pred = torch.tensor([self.pop_list.index[cands_idx][:k].tolist()])
+            pred = torch.LongTensor([self.pop_list.index[:k].tolist()])
             preds = torch.cat((preds, pred), 0)
             last_item = torch.cat((last_item, torch.tensor(target)), 0)
 
         return preds, last_item
 
+class SessionPop(object):
+    def __init__(self, conf, params, logger):
+        '''
+        Session popularity predictor that gives higher scores to items with higher number of occurrences in the session.
+        
+        Ties are broken up by adding the popularity score of the item.
+
+        Parameters
+        ----------
+        pop_n : int
+            Only give back non-zero scores to the top N ranking items.
+            Should be higher or equal than the cut-off of your evaluation. (Default value: 100)
+        '''
+        self.top_n = params['pop_n']
+        self.item_key = conf['item_key']
+        self.session_key = conf['session_key']
+        self.logger = logger
+
+    def fit(self, train, valid_loader=None):
+        grp = train.groupby(self.item_key)
+        self.pop_list = grp.size()
+        self.pop_list = self.pop_list / (self.pop_list + 1)
+        self.pop_list.sort_values(ascending=False, inplace=True)
+        self.pop_list = self.pop_list.head(self.top_n)
+        # get item_number for predict
+        self.item_number = len(grp)
+
+    def predict(self, test, k=15):
+        pred_matrix, last_item = torch.LongTensor([]), torch.LongTensor([])
+        for seq, target, _ in test:
+            # version 1
+            predict_for_item_ids = np.arange(self.item_number)
+            preds = np.zeros(self.item_number)
+            mask = np.in1d(predict_for_item_ids, self.pop_list.index)
+            preds[mask] = self.pop_list[predict_for_item_ids[mask]]
+            seq_items, item_counts = np.unique(seq, return_counts=True)
+            ser = pd.Series(data=item_counts, index=seq_items)
+            mask = np.in1d(predict_for_item_ids, ser.index)
+            preds[mask] += ser[predict_for_item_ids[mask]]
+            preds_series = pd.Series(data=preds, index=predict_for_item_ids)
+            preds_series.sort_values(ascending=False, inplace=True)
+            pred = torch.LongTensor([preds_series.index[:k].tolist()])
+            pred_matrix = torch.cat((pred_matrix, pred), 0)
+            last_item = torch.cat((last_item, torch.tensor(target)), 0)
+            
+            # version 2
+#            seq_items, item_counts = np.unique(seq, return_counts=True)
+#            sers = pd.Series(data=seq_items, index=item_counts)
+#            temp = pd.concat([self.pop_list, sers], axis=1).fillna(0)
+#            temp.columns = [0, 1]
+#            pop_list_current = temp[0] + temp[1]
+#            pop_list_current.sort_values(ascending=False, inplace=True)
+#            pred = torch.LongTensor([pop_list_current.index[:k].tolist()])
+#            pred_matrix = torch.cat((pred_matrix, pred), 0)
+#            last_item = torch.cat((last_item, torch.tensor(target)), 0)
+            
+        return pred_matrix, last_item
+        
 class ItemKNN(object):
     def __init__(self, conf, params, logger):
         '''        
@@ -107,8 +162,9 @@ class ItemKNN(object):
         preds, last_item = torch.tensor([]), torch.tensor([])
 
         for seq, target, _ in test:
-            cands_idx = ~np.in1d(self.sims[seq[-1]].index, seq)
-            pred = torch.tensor([self.sims[seq[-1]].index[cands_idx][:k].tolist()])
+            # cands_idx = ~np.in1d(self.sims[seq[-1]].index, seq)
+            # pred = torch.tensor([self.sims[seq[-1]].index[cands_idx][:k].tolist()])
+            pred = torch.tensor([self.sims[seq[-1]].index[:k].tolist()])
             preds = torch.cat((preds, pred), 0)
             last_item = torch.cat((last_item, torch.tensor(target)), 0)
 
@@ -205,8 +261,9 @@ class BPRMF(object):
             iidx = self.itemidmap[seq].values
             uF = self.I[iidx].mean(axis=0)
             pred_iidx = np.argsort(self.I.dot(uF))[::-1]
-            cands_idx = ~np.in1d(pred_iidx, iidx)
-            pred_iidx = pred_iidx[cands_idx][:k]
+            # cands_idx = ~np.in1d(pred_iidx, iidx)
+            # pred_iidx = pred_iidx[cands_idx][:k]
+            pred_iidx = pred_iidx[:k]
             pred = torch.tensor([self.iditemmap[pred_iidx].values.tolist()])
             preds = torch.cat((preds, pred), 0)
             last_item = torch.cat((last_item, torch.tensor(target)), 0)

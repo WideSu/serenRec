@@ -260,7 +260,7 @@ class BPRMF(object):
         for seq, target, _ in test:
             iidx = self.itemidmap[seq].values
             uF = self.I[iidx].mean(axis=0)
-            pred_iidx = np.argsort(self.I.dot(uF))[::-1]
+            pred_iidx = np.argsort(self.I.dot(uF) + self.bI)[::-1]
             # cands_idx = ~np.in1d(pred_iidx, iidx)
             # pred_iidx = pred_iidx[cands_idx][:k]
             pred_iidx = pred_iidx[:k]

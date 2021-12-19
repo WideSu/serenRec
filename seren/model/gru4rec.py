@@ -4,8 +4,10 @@ import torch.optim as optim
 import numpy as np
 import torch.nn.functional as F
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 def softmax_neg(logit):
-    hm = 1.0 - torch.eye(*logit.size())
+    hm = 1.0 - torch.eye(*logit.size()).to(device)
     logit = logit * hm
     e_x = torch.exp(logit - logit.max(dim=1, keepdim=True).values) * hm
     return e_x / e_x.sum(dim=1, keepdim=True)
@@ -48,8 +50,9 @@ class GRU4REC(nn.Module):
             BPR-max regularization
         '''    
         super(GRU4REC, self).__init__()
+        self.conf = conf
         self.use_cuda = True if torch.cuda.is_available() else False
-        self.device = torch.device('cuda' if self.use_cuda else 'cpu')
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.logger = logger
         self.input_size = input_size  # item number
         self.hidden_size = conf['hidden_size']
@@ -76,10 +79,7 @@ class GRU4REC(nn.Module):
         self.loss_func = LossFunction(conf['loss_type'], conf['l2'], self.use_cuda)
 
         self.reset_parameters()
-        self.set_optimizer(
-            conf['optimizer'], conf['learning_rate'], conf['momentum'], conf['wd'], conf['eps'])
-
-        self = self.to(self.device)
+        # self = self.to(self.device)
 
     def _reset_hidden(self, hidden, mask):
         '''
@@ -91,7 +91,14 @@ class GRU4REC(nn.Module):
 
 
     def fit(self, train_loader, valid_loader=None):
+        if self.use_cuda:
+            self.cuda()
+        else:
+            self.cpu()
+
         self.logger.info('Start training...')
+        self.optimizer = self.set_optimizer(
+            self.conf['optimizer'], self.conf['learning_rate'], self.conf['momentum'], self.conf['wd'], self.conf['eps'])
         for epoch in range(1, self.epochs + 1):
             self.train()
             total_loss = []
@@ -101,7 +108,7 @@ class GRU4REC(nn.Module):
                 input = input.to(self.device)
                 target = target.to(self.device)
                 self.optimizer.zero_grad()
-                hidden = self._reset_hidden(hidden, mask).detach()
+                hidden = self._reset_hidden(hidden, mask).detach() #??
                 logit, hidden = self.forward(input, hidden)
                 logit_sampled = logit[:, target.view(-1)]
                 loss = self.loss_func(logit_sampled)
@@ -127,7 +134,7 @@ class GRU4REC(nn.Module):
             self.logger.info(f'training epoch: {epoch}\tTrain Loss: {np.mean(total_loss):.3f}' + s)
     
     def predict(self, test_loader, k=15):
-        preds, last_item = torch.tensor([]).to(self.device), torch.tensor([]).to(self.device)
+        preds, last_item = torch.LongTensor([]).to(self.device), torch.LongTensor([]).to(self.device)
         self.gru.flatten_parameters()
         self.eval()
         
@@ -136,13 +143,14 @@ class GRU4REC(nn.Module):
             for input, target, _ in test_loader:
                 input = input.to(self.device)
                 target = target.to(self.device)
+                target = target + 1 # target also need to return to the previous item codes
                 logit, hidden = self.forward(input, hidden)
                 rank_list = torch.argsort(logit, descending=True)[:,:k] + 1 # +1 to return to the pervious item codes
                 preds = torch.cat((preds, rank_list), 0)
-                last_item = torch.cat((last_item, target + 1), 0) # target also need to return to the previous item codes
+                last_item = torch.cat((last_item, target), 0) 
 
         return preds.cpu(), last_item.cpu()
-    
+
     def set_optimizer(self, optimizer_type='Adagrad', lr=.05, momentum=0, weight_decay=0, eps=1e-6):
         '''
         An optimizer function for handling various kinds of optimizers.
@@ -168,19 +176,20 @@ class GRU4REC(nn.Module):
             Invalid optimizer name
         '''        
         if optimizer_type == 'RMSProp':
-            self.optimizer = optim.RMSprop(self.parameters(), lr=lr, eps=eps, weight_decay=weight_decay, momentum=momentum)
+            optimizer = optim.RMSprop(self.parameters(), lr=lr, eps=eps, weight_decay=weight_decay, momentum=momentum)
         elif optimizer_type == 'Adagrad':
-            self.optimizer = optim.Adagrad(self.parameters(), lr=lr, weight_decay=weight_decay)
+            optimizer = optim.Adagrad(self.parameters(), lr=lr, weight_decay=weight_decay)
         elif optimizer_type == 'Adadelta':
-            self.optimizer = optim.Adadelta(self.parameters(), lr=lr, eps=eps, weight_decay=weight_decay)
+            optimizer = optim.Adadelta(self.parameters(), lr=lr, eps=eps, weight_decay=weight_decay)
         elif optimizer_type == 'Adam':
-            self.optimizer = optim.Adam(self.parameters(), lr=lr, eps=eps, weight_decay=weight_decay)
+            optimizer = optim.Adam(self.parameters(), lr=lr, eps=eps, weight_decay=weight_decay)
         elif optimizer_type == 'SparseAdam':
-            self.optimizer = optim.SparseAdam(self.parameters(), lr=lr, eps=eps)
+            optimizer = optim.SparseAdam(self.parameters(), lr=lr, eps=eps)
         elif optimizer_type == 'SGD':
-            self.optimizer = optim.SGD(self.parameters(), lr=lr, momentum=momentum, weight_decay=weight_decay)
+            optimizer = optim.SGD(self.parameters(), lr=lr, momentum=momentum, weight_decay=weight_decay)
         else:
             raise NotImplementedError('Invalid optimizer name...')
+        return optimizer
 
     def reset_parameters(self):
         '''
@@ -276,11 +285,7 @@ class GRU4REC(nn.Module):
         '''
         Initialize the hidden state of the GRU
         '''
-        try:
-            h0 = torch.zeros(self.num_layers, self.batch_size, self.hidden_size).to(self.device)
-        except:
-            self.device = 'cpu'
-            h0 = torch.zeros(self.num_layers, self.batch_size, self.hidden_size).to(self.device)
+        h0 = torch.zeros(self.num_layers, self.batch_size, self.hidden_size).to(self.device)
         return h0
 
 class TOP1Loss(nn.Module):

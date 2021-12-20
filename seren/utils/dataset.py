@@ -114,7 +114,7 @@ class SRGNNDataset(object):
 class GRU4RECDataset(object):
     def __init__(self, data, conf, batch_size, time_sort=False):
         # this need item_id start from 0
-        self.df = data
+        self.df = data.copy()
         self.batch_size = batch_size
         self.session_key = conf['session_key']
         self.item_key = conf['item_key']

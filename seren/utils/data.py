@@ -23,7 +23,7 @@ class Interactions(object):
         #self._make_sessions()
         #self._core_filter()
         self._filter()
-        self._reindex()
+        # self._reindex()
 
         #self.user_num = self.df[self.user_key].nunique()
         self.item_num = self.df[self.item_key].nunique()

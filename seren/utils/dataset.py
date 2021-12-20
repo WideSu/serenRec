@@ -113,7 +113,7 @@ class SRGNNDataset(object):
 
 class GRU4RECDataset(object):
     def __init__(self, data, conf, batch_size, time_sort=False):
-        data[conf['item_key']] -= 1 # go back to codes from 0
+        # this need item_id start from 0
         self.df = data
         self.batch_size = batch_size
         self.session_key = conf['session_key']

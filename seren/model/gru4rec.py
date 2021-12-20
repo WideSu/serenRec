@@ -143,9 +143,12 @@ class GRU4REC(nn.Module):
             for input, target, _ in test_loader:
                 input = input.to(self.device)
                 target = target.to(self.device)
-                target = target + 1 # target also need to return to the previous item codes
+                # target = target + 1 # target also need to return to the previous item codes
                 logit, hidden = self.forward(input, hidden)
-                rank_list = torch.argsort(logit, descending=True)[:,:k] + 1 # +1 to return to the pervious item codes
+
+                _, rank_list = torch.topk(logit, k, -1)
+                # rank_list = rank_list + 1
+                # rank_list = torch.argsort(logit, descending=True)[:,:k] + 1 # +1 to return to the pervious item codes
                 preds = torch.cat((preds, rank_list), 0)
                 last_item = torch.cat((last_item, target), 0) 
 

@@ -91,3 +91,20 @@ def build_graph(train_data):
             for j, i in graph.in_edges(i):
                 graph.add_edge(j, i, weight=graph.get_edge_data(j, i)['weight'] / sum)
     return graph
+
+def reindex(df, item_key, item_id_map=None, start_from_zero=True):
+    if item_id_map is None:
+        codes = pd.Categorical(df[item_key]).codes # coding from 0
+        item_id_map = dict(zip(df[item_key], codes))
+    
+    df[item_key] = df[item_key].map(item_id_map)
+    if not start_from_zero:
+        df[item_key] += 1
+        item_id_map = {key: val + 1 for key, val in item_id_map.items()}
+
+    id_item_map = {val: key for key, val in item_id_map.items()}
+
+    if item_id_map:
+        return df
+    else:
+        return df, item_id_map, id_item_map

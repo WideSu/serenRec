@@ -1,7 +1,8 @@
 import pandas as pd
 import numpy as np
 import torch
-from collections import Counter
+import torch.nn as nn
+import torch.optim as optim
 
 class Pop(object):
     def __init__(self, conf, params, logger):
@@ -159,18 +160,18 @@ class ItemKNN(object):
             self.sims[itemids[i]] = pd.Series(data=iarray[indices], index=itemids[indices])
 
     def predict(self, test, k=15):
-        preds, last_item = torch.tensor([]), torch.tensor([])
+        preds, last_item = torch.LongTensor([]), torch.LongTensor([])
 
         for seq, target, _ in test:
             # cands_idx = ~np.in1d(self.sims[seq[-1]].index, seq)
             # pred = torch.tensor([self.sims[seq[-1]].index[cands_idx][:k].tolist()])
-            pred = torch.tensor([self.sims[seq[-1]].index[:k].tolist()])
+            pred = torch.LongTensor([self.sims[seq[-1]].index[:k].tolist()])
             preds = torch.cat((preds, pred), 0)
             last_item = torch.cat((last_item, torch.tensor(target)), 0)
 
         return preds, last_item
 
-class BPRMF(object):
+class BPRMF_1(object):
     def __init__(self, conf, params, logger, init_normal=True):
         '''
         BPR(n_factors = 100, n_iterations = 10, learning_rate = 0.01, lambda_session = 0.0, lambda_item = 0.0, sigma = 0.05, init_normal = False, session_key = 'SessionId', item_key = 'ItemId')
@@ -254,7 +255,7 @@ class BPRMF(object):
             
     
     def predict(self, test, k=15):
-        preds, last_item = torch.tensor([]), torch.tensor([])
+        preds, last_item = torch.LongTensor([]), torch.LongTensor([])
         self.iditemmap = pd.Series(data=self.itemidmap.index, index=self.itemidmap.values)
 
         for seq, target, _ in test:
@@ -264,8 +265,90 @@ class BPRMF(object):
             # cands_idx = ~np.in1d(pred_iidx, iidx)
             # pred_iidx = pred_iidx[cands_idx][:k]
             pred_iidx = pred_iidx[:k]
-            pred = torch.tensor([self.iditemmap[pred_iidx].values.tolist()])
+            pred = torch.LongTensor([self.iditemmap[pred_iidx].values.tolist()])
             preds = torch.cat((preds, pred), 0)
             last_item = torch.cat((last_item, torch.tensor(target)), 0)
 
         return preds, last_item
+
+class BPRMF(nn.Module):
+    def __init__(self, item_num, conf, params, logger, init_normal=True):
+        super(BPRMF, self).__init__()
+        self.n_factors = params['item_embedding_dim']
+        self.n_iterations = params['epochs']
+        self.learning_rate = params['learning_rate']
+        self.lambda_item = params['lambda_item']
+        self.sigma = params['sigma'] if params['sigma'] is not None else 0.05
+        self.session_key = conf['session_key']
+        self.item_key = conf['item_key']
+        self.logger = logger
+
+        self.init_normal = init_normal
+
+        self.item_num = item_num
+        self.embed_item = nn.Embedding(item_num, self.n_factors)
+        if init_normal:
+            nn.init.normal_(self.embed_item.weight, std=self.sigma)
+
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    def forward(self, seq, target, is_train=True):
+        uF = self.embed_item(seq).mean(dim=0)
+        iF = self.embed_item(target)
+        if is_train:
+            j = torch.randint(0, self.item_num - 1, (1, )) # sample 1
+            while j.item() in target:
+                j = torch.randint(0, self.item_num - 1, (1, ))
+            j.to(self.device)
+            jF = self.embed_item(j)
+
+            pred_i = (uF * iF).sum(dim=-1)
+            pred_j = (uF * jF).sum(dim=-1)
+
+            return pred_i, pred_j
+        else:
+            pred_i = (uF * iF).sum(dim=-1)
+            return pred_i
+
+    def fit(self, train_loader):
+        if torch.cuda.is_available():
+            self.cuda()
+        else:
+            self.cpu()
+
+        self.optimizer = optim.SGD(self.parameters(), lr=self.learning_rate)
+
+        for epoch in range(1, self.n_iterations + 1):
+            self.train()
+            total_loss, cnt = 0., 0
+            for seq, target, _ in train_loader:
+                seq = torch.tensor(seq).to(self.device)
+                target = torch.tensor(target).to(self.device)
+
+                self.optimizer.zero_grad()
+                pred_i, pred_j = self.forward(seq, target)
+
+                loss = -(pred_i - pred_j).sigmoid().log().sum() # BPR loss
+                loss += self.lambda_item * self.embed_item.weight.norm()
+
+                loss.backward()
+                self.optimizer.step()
+                total_loss += loss.item()
+                cnt += 1
+
+            self.logger.info(f'training epoch: {epoch}\tTrain Loss: {total_loss / cnt:.3f}')
+                
+    def predict(self, test_loader, k=15):
+        preds, last_item = torch.LongTensor([]).to(self.device), torch.LongTensor([]).to(self.device)
+        self.eval()
+
+        for seq, target, _ in test_loader:
+            seq = torch.tensor(seq).to(self.device)
+            target = torch.tensor(target).to(self.device)
+            pred_is= self.forward(seq, torch.arange(self.item_num), is_train=False)
+            _, rank_list = torch.topk(pred_is, k, -1)
+            rank_list = torch.reshape(rank_list, (-1, k))
+            preds = torch.cat((preds, rank_list), 0)
+            last_item = torch.cat((last_item, target), 0)
+
+        return preds.cpu(), last_item.cpu()

@@ -25,7 +25,7 @@
 
 ## 模块介绍
 
-test.py是目前所有程序的接口，无论跑什么程序都在这个程序基础上提交参数名就行
+test.py是目前所有程序的接口，无论跑什么程序都在这个程序基础上提交参数名就行,里面的程序内容相当于main函数
 
 utils存放的是和程序功能相关的函数方法和类
 
@@ -50,5 +50,9 @@ metrics.py用来计算KPI，目前可以算mrr, ndcg, hr, ILS
 model_selections.py用来存放各种train-test数据集分割方法，因为会有很多种方法
 
 config.py存放各种配置信息，以及整理test.py中通过argparse传入的各种参数
+
+test.py中的argparse接口参数目前是直接写在里面的，如果考虑到以后框架整体完善了，没有额外参数填入时，应当将该部分一同移入config.py，或者单独命名文件args.py
+
+conventions.py里有3个传统推荐模型，BPR的我近期会有更新
 
 

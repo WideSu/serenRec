@@ -118,7 +118,7 @@ class DSR_RNN(nn.Module):
         dec_seq = self.item_emb_table(y_out)
         seq_len = torch.not_equal(y_out, 0).int().sum(dim=-1).int()
 
-        dec_output, state = self.enc_gru(dec_seq)
+        dec_output, state = self.dec_gru(dec_seq)
         dec_pre = self.ln(state)
 
         # diversity score

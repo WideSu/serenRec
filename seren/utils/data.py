@@ -19,6 +19,12 @@ class Interactions(object):
         self._process_flow()
 
     def _process_flow(self):
+        '''
+        load_data用于加载初始数据
+        make_sessions用于给原始数据中不带sessionID的做出该ID
+        filter用于筛选出劣质的item或user，以及劣质的session
+        reindex目前单独挪到外层functions.py中，用于将item raw ID处理成想要的编码
+        '''
         self._load_data()
         #self._make_sessions()
         #self._core_filter()

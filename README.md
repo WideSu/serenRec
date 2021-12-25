@@ -39,11 +39,11 @@ model存放已经实现好的模型
 
 model中的每个模型都会写好一个对应模型的class，需要在init方法中写好模型的参数和介绍，每个模型需要包含fit和predict两个方法，将训练过程和预测过程封装好，方便调用
 
-data.py用来读取原始数据，目前包含两种class，Interaction用来读交互数据，Categories用来读item相关category信息的数据
+data.py用来读取原始数据，目前包含两种class，Interaction用来读交互数据，Categories用来读item相关category信息的数据，这里仍是原始数据，不存在编码
 
 dataset.py用于生成loader，因为torch的训练和预测都需要和loader相关，所以这里面放的都是和各个模型对应的loader
 
-functions.py用来存一些方便且可能复用的函数方法
+functions.py用来存一些方便且可能复用的函数方法，比如对item进行编码
 
 metrics.py用来计算KPI，目前可以算mrr, ndcg, hr, ILS
 

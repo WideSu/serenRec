@@ -286,19 +286,20 @@ class BPRMF(nn.Module):
         self.init_normal = init_normal
 
         self.item_num = item_num
-        self.embed_item = nn.Embedding(item_num, self.n_factors)
-        if init_normal:
-            nn.init.normal_(self.embed_item.weight, std=self.sigma)
+        self.embed_item = nn.Embedding(item_num + 1, self.n_factors, padding_idx=0)
+        # if init_normal:
+        #     nn.init.normal_(self.embed_item.weight, std=self.sigma)
 
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     def forward(self, seq, target, is_train=True):
-        uF = self.embed_item(seq).mean(dim=0)
+        seq = seq.to(self.device)
+        target = target[0].to(self.device)
+        uF = self.embed_item(seq).sum(dim=1) / seq.not_equal(0).sum(dim=1, keepdim=True)
         iF = self.embed_item(target)
+
         if is_train:
-            j = torch.randint(0, self.item_num - 1, (1, )) # sample 1
-            while j.item() in target:
-                j = torch.randint(0, self.item_num - 1, (1, ))
+            j = torch.randint(1, self.item_num + 1, (len(target), )) # sample 1
             j.to(self.device)
             jF = self.embed_item(j)
 

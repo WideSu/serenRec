@@ -3,6 +3,32 @@ import numpy as np
 from torch.utils.data import Dataset, DataLoader
 from .functions import pad_zero_for_seq, build_seqs, get_seq_from_df
 
+class BPRDataset(Dataset):
+    def __init__(self, data, conf) -> None:
+        self.data = build_seqs(get_seq_from_df(data, conf), conf['session_len'])
+        
+        l = len(self.data[1])
+        for i in range(l):
+            ll = len(self.data[0][i])
+            self.data[0][i] = np.pad(self.data[0][i], (0, conf['session_len'] - ll))
+
+    def __len__(self):    
+        return len(self.data[1])
+
+    def __getitem__(self, index):
+        session_items = self.data[0][index]
+        target_item = self.data[1][index]
+
+        return session_items, target_item
+
+    def get_loader(self, args, shuffle=True):
+        loader = DataLoader(
+            self, 
+            batch_size=args['batch_size'], 
+            shuffle=shuffle, 
+        )
+
+        return loader
 
 class NARMDataset(Dataset):
     def __init__(self, data, conf):

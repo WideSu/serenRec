@@ -5,7 +5,7 @@ from torch.utils.data.dataloader import DataLoader
 from seren.utils.data import Interactions, Categories
 from seren.config import get_parameters, get_logger, ACC_KPI
 from seren.utils.model_selection import fold_out, train_test_split
-from seren.utils.dataset import NARMDataset, SRGNNDataset, GRU4RECDataset, ConventionDataset, BPRDataset
+from seren.utils.dataset import *
 from seren.utils.metrics import accuracy_calculator, diversity_calculator
 from seren.model.narm import NARM
 from seren.model.srgnn import SessionGraph
@@ -60,85 +60,98 @@ logger = get_logger(f'_{conf["description"]}')
 
 ds = Interactions(conf, logger)
 
-if conf['model'] == 'narm':
-    # TODO train test item_key enciding should use reindex()
-    train, test = fold_out(ds.df, conf)
-    train, valid = fold_out(train, conf)
+train, test = train_test_split(ds.df, conf, logger)
+train, item_id_map, id_item_map = reindex(train, conf['item_key'], None, start_from_zero=False)
+test = reindex(test, conf['item_key'], item_id_map, start_from_zero=False)
 
-    train_dataset = NARMDataset(train, conf)
-    valid_dataset = NARMDataset(valid, conf)
-    test_dataset = NARMDataset(test, conf)
-    # logger.debug(ds.item_num)
-    train_loader = train_dataset.get_loader(model_conf, shuffle=True)
-    valid_loader = valid_dataset.get_loader(model_conf, shuffle=False)
-    test_loader = test_dataset.get_loader(model_conf, shuffle=False)
-    model = NARM(ds.item_num, model_conf, logger)
-    model.fit(train_loader, valid_loader)
-    preds, truth = model.predict(test_loader, conf['topk'])
-elif conf['model'] == 'srgnn':
-    # TODO train test item_key enciding should use reindex()
-    train, test = fold_out(ds.df, conf)
-    train, valid = fold_out(train, conf)
+train_dataset = BPRDataset(train, conf)
+train_loader = train_dataset.get_loader(model_conf, True)
 
-    train_dataset = SRGNNDataset(train, conf, shuffle=True)
-    valid_dataset = SRGNNDataset(valid, conf, shuffle=False)
-    test_dataset = SRGNNDataset(test, conf, shuffle=False)
-    model = SessionGraph(ds.item_num, model_conf, logger)
-    model.fit(train_dataset, valid_dataset)
-    preds, truth = model.predict(test_dataset, conf['topk'])
-elif conf['model'] == 'gru4rec':
-    train, test = train_test_split(ds.df, conf, logger)#fold_out(ds.df, conf)
-    train, item_id_map, id_item_map = reindex(train, conf['item_key'], None, start_from_zero=True)
-    test = reindex(test, conf['item_key'], item_id_map, start_from_zero=True)
-    suitable_batch = min(
-        model_conf['batch_size'],
-        train[conf['session_key']].nunique(), 
-        test[conf['session_key']].nunique() #, valid[conf['session_key']].nunique()
-    )
-    if suitable_batch < model_conf['batch_size']:
-        logger.warning(
-            f'Currrent batch size {model_conf["batch_size"]} is not suitable, the maximum tolerance for batch size is {suitable_batch}')
-        model_conf['batch_size'] = suitable_batch
+# train_dataset = ConventionDataset(train, conf)
+# test_dataset = ConventionDataset(test, conf)
+model = BPRMF(train[conf['item_key']].nunique(), conf, model_conf, logger)
+# model.fit(train_dataset)
+# preds, truth = model.predict(test_dataset)
 
-    train_loader = GRU4RECDataset(train, conf, model_conf['batch_size'])
-    test_loader = GRU4RECDataset(test, conf, model_conf['batch_size'])
-    model = GRU4REC(len(item_id_map), model_conf, logger)
-    model.fit(train_loader)#, valid_loader)
-    preds, truth = model.predict(test_loader, conf['topk'])
-    # def f(x, *y): return id_item_map[x]
-    # preds.map_(preds, f)
-    # truth.map_(truth, f)
-elif conf['model'] == 'pop':
-    train, test = train_test_split(ds.df, conf, logger) #fold_out(ds.df, conf)
-    test_dataset = ConventionDataset(test, conf)
-    model = Pop(conf, model_conf, logger)
-    model.fit(train)
-    preds, truth = model.predict(test_dataset)
-elif conf['model'] == 'spop':
-    train, test = train_test_split(ds.df, conf, logger) #fold_out(ds.df, conf)
-    test_dataset = ConventionDataset(test, conf)
-    model = SessionPop(conf, model_conf, logger)
-    model.fit(train)
-    preds, truth = model.predict(test_dataset)
-elif conf['model'] == 'itemknn':
-    train, test = train_test_split(ds.df, conf, logger)
-    test_dataset = ConventionDataset(test, conf)
-    model = ItemKNN(conf, model_conf, logger)
-    model.fit(train)
-    preds, truth = model.predict(test_dataset)
-elif conf['model'] == 'bprmf':
-    train, test = train_test_split(ds.df, conf, logger)
-    train, item_id_map, id_item_map = reindex(train, conf['item_key'], None, start_from_zero=True)
-    test = reindex(test, conf['item_key'], item_id_map, start_from_zero=True)
-    train_dataset = ConventionDataset(train, conf)
-    test_dataset = ConventionDataset(test, conf)
-    model = BPRMF(train[conf['item_key']].nunique(), conf, model_conf, logger)
-    model.fit(train_dataset)
-    preds, truth = model.predict(test_dataset)
+# if conf['model'] == 'narm':
+#     # TODO train test item_key enciding should use reindex()
+#     train, test = fold_out(ds.df, conf)
+#     train, valid = fold_out(train, conf)
 
-else:
-    logger.error('Invalid model name')
-    raise ValueError('Invalid model name')
+#     train_dataset = NARMDataset(train, conf)
+#     valid_dataset = NARMDataset(valid, conf)
+#     test_dataset = NARMDataset(test, conf)
+#     # logger.debug(ds.item_num)
+#     train_loader = train_dataset.get_loader(model_conf, shuffle=True)
+#     valid_loader = valid_dataset.get_loader(model_conf, shuffle=False)
+#     test_loader = test_dataset.get_loader(model_conf, shuffle=False)
+#     model = NARM(ds.item_num, model_conf, logger)
+#     model.fit(train_loader, valid_loader)
+#     preds, truth = model.predict(test_loader, conf['topk'])
+# elif conf['model'] == 'srgnn':
+#     # TODO train test item_key enciding should use reindex()
+#     train, test = fold_out(ds.df, conf)
+#     train, valid = fold_out(train, conf)
+
+#     train_dataset = SRGNNDataset(train, conf, shuffle=True)
+#     valid_dataset = SRGNNDataset(valid, conf, shuffle=False)
+#     test_dataset = SRGNNDataset(test, conf, shuffle=False)
+#     model = SessionGraph(ds.item_num, model_conf, logger)
+#     model.fit(train_dataset, valid_dataset)
+#     preds, truth = model.predict(test_dataset, conf['topk'])
+# elif conf['model'] == 'gru4rec':
+#     train, test = train_test_split(ds.df, conf, logger)#fold_out(ds.df, conf)
+#     train, item_id_map, id_item_map = reindex(train, conf['item_key'], None, start_from_zero=True)
+#     test = reindex(test, conf['item_key'], item_id_map, start_from_zero=True)
+#     suitable_batch = min(
+#         model_conf['batch_size'],
+#         train[conf['session_key']].nunique(), 
+#         test[conf['session_key']].nunique() #, valid[conf['session_key']].nunique()
+#     )
+#     if suitable_batch < model_conf['batch_size']:
+#         logger.warning(
+#             f'Currrent batch size {model_conf["batch_size"]} is not suitable, the maximum tolerance for batch size is {suitable_batch}')
+#         model_conf['batch_size'] = suitable_batch
+
+#     train_loader = GRU4RECDataset(train, conf, model_conf['batch_size'])
+#     test_loader = GRU4RECDataset(test, conf, model_conf['batch_size'])
+#     model = GRU4REC(len(item_id_map), model_conf, logger)
+#     model.fit(train_loader)#, valid_loader)
+#     preds, truth = model.predict(test_loader, conf['topk'])
+#     # def f(x, *y): return id_item_map[x]
+#     # preds.map_(preds, f)
+#     # truth.map_(truth, f)
+# elif conf['model'] == 'pop':
+#     train, test = train_test_split(ds.df, conf, logger) #fold_out(ds.df, conf)
+#     test_dataset = ConventionDataset(test, conf)
+#     model = Pop(conf, model_conf, logger)
+#     model.fit(train)
+#     preds, truth = model.predict(test_dataset)
+# elif conf['model'] == 'spop':
+#     train, test = train_test_split(ds.df, conf, logger) #fold_out(ds.df, conf)
+#     test_dataset = ConventionDataset(test, conf)
+#     model = SessionPop(conf, model_conf, logger)
+#     model.fit(train)
+#     preds, truth = model.predict(test_dataset)
+# elif conf['model'] == 'itemknn':
+#     train, test = train_test_split(ds.df, conf, logger)
+#     test_dataset = ConventionDataset(test, conf)
+#     model = ItemKNN(conf, model_conf, logger)
+#     model.fit(train)
+#     preds, truth = model.predict(test_dataset)
+# elif conf['model'] == 'bprmf':
+#     train, test = train_test_split(ds.df, conf, logger)
+#     train, item_id_map, id_item_map = reindex(train, conf['item_key'], None, start_from_zero=True)
+#     test = reindex(test, conf['item_key'], item_id_map, start_from_zero=True)
+#     train_dataset = ConventionDataset(train, conf)
+#     test_dataset = ConventionDataset(test, conf)
+#     model = BPRMF(train[conf['item_key']].nunique(), conf, model_conf, logger)
+#     model.fit(train_dataset)
+#     preds, truth = model.predict(test_dataset)
+
+# else:
+#     logger.error('Invalid model name')
+#     raise ValueError('Invalid model name')
 
 # logger.info(f"Finish predicting, start calculating {conf['model']}'s KPI...")
 # metrics = accuracy_calculator(preds, truth, ACC_KPI)

@@ -1,5 +1,14 @@
 # SEREN
 
+SeRen is a Python toolkit dealing with *session-based recommendation*.
+
+The name SeRen (roughly :) ) stands for **Se**ssion-based **Re**commendatio**n** Toolkit.
+
+## TODO List
+
+This repository is still under developement, but I have no time to reformat and reimplement.
+
+
 ## 结构
 
     ```

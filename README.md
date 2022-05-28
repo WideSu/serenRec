@@ -1,4 +1,4 @@
-# SEREN
+# SerenRec
 
 SeRen is a Python toolkit dealing with *session-based recommendation*.
 

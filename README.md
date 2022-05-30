@@ -1,4 +1,6 @@
-# SerenRec
+<p align="center">
+<img src="imgs/logo.png" align="center" width="70%" style="margin: 0 auto">
+</p>
 
 SeRen is a Python toolkit dealing with *session-based recommendation*.
 

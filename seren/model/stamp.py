@@ -14,6 +14,12 @@ from tqdm import tqdm
 
 class STAMP(nn.Module):
     def __init__(self, config):
+        '''
+        __init__ _summary_
+
+        :param config: _description_
+        :type config: _type_
+        '''        
         super(STAMP, self).__init__()
         self.embedding_dim = config['embedding_dim'] # default is 100
         self.lr = config['learning_rate'] # default is 0.005
@@ -33,8 +39,8 @@ class STAMP(nn.Module):
         # attention related
         self.W_0 = nn.Linear(self.embedding_dim, 1, bias=False)
         self.W_1 = nn.Linear(self.embedding_dim, self.embedding_dim, bias=False)
-        self.W_2 = nn.Linear(self.embedding_dim, self.embedding_dim,, bias=False)
-        self.W_3 = nn.Linear(self.embedding_dim, self.embedding_dim,, bias=False)
+        self.W_2 = nn.Linear(self.embedding_dim, self.embedding_dim, bias=False)
+        self.W_3 = nn.Linear(self.embedding_dim, self.embedding_dim, bias=False)
         self.b_a = nn.Parameter(torch.zeros(self.embedding_dim), requires_grad=True)
 
         # activate function
@@ -129,7 +135,7 @@ class STAMP(nn.Module):
             pbar.set_description(f'[Epoch {epoch:03d}]')
             for item_seq, next_item in pbar:
                 self.zero_grad()
-                output = self.forward(item_seq, next_item)
+                output = self.forward(item_seq)
                 logits = self.sigmoid(torch.matmul(output, self.item_embedding.weight.transpose(0, 1)))
                 pred_y = self.softmax(logits)
                 loss = criterion(pred_y, next_item)
@@ -147,8 +153,55 @@ class STAMP(nn.Module):
             self.eval()
             delta_loss = float(current_loss - last_loss)
             if (abs(delta_loss) < 1e-5) and self.early_stop:
-                    print('Satisfy early stop mechanism')
-                    break
-                else:
-                    last_loss = current_loss
+                print('Satisfy early stop mechanism')
+                break
+            else:
+                last_loss = current_loss
+
+
+    def predict(self, input_ids, next_item):   
+        '''
+        method to predict the score of a target item given certain session items basket
+
+        Parameters
+        ----------
+        input_ids : List
+            a list of items in certain session
+        next_item : int
+            the index of the target next item
+
+        Returns
+        -------
+        scores : float
+            predicted scores of corresponding target items
+        '''          
+        self.eval()
+        item_seq = torch.tensor(input_ids)
+        next_item = torch.tensor(next_item)
+
+        seq_output = self.forward(item_seq)
+        next_item_emb = self.item_embedding(next_item)
+
+        score = torch.mul(seq_output, next_item_emb).sum(dim=1) 
+        return score
+
+    def rank(self, test_loader,topk=50):
+        """_summary_
+
+        Args:
+            test_loader (_type_): _description_
+            topk (int, optional): _description_. Defaults to 50.
+
+        Returns:
+            _type_: _description_
+        """        
+        self.eval()
+        item_seq, _ = next(iter(test_loader))
+        output = self.forward(item_seq)
+        logits = self.sigmoid(torch.matmul(output, self.item_embedding.weight.transpose(0, 1)))
+        scores = self.softmax(logits)
+        scs, ids = torch.sort(scores[:, 1:], descending=True)[:, :topk]
+        ids += 1
+
+        return ids, scs
 

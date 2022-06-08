@@ -1,4 +1,3 @@
-from turtle import forward
 import torch
 import torch.nn as nn
 from tqdm import tqdm
@@ -14,7 +13,7 @@ class SessionPop(nn.Module):
         
 
     def fit(self, train_loader):
-        
+
         pbar = tqdm(train_loader)
         for item_seq, _ in pbar:
             idx, cnt = self.forward(item_seq)

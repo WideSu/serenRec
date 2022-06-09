@@ -19,7 +19,6 @@ class SessionPop(nn.Module):
     def __init__(self, config):
         super(SessionPop, self).__init__()
         self.item_cnt_ref = torch.zeros(1 + config['item_num']) # the index starts from 1
-        self.top_n = config['top_n']
         self.max_len = config['max_len']
 
     def forward(self, item_seq):
@@ -35,12 +34,14 @@ class SessionPop(nn.Module):
         self.item_score =  self.item_cnt_ref/(1+self.item_cnt_ref)
 
     def predict(self, input_ids, next_item):
-        item_cnt_ref = self.item_cnt_ref.clone()
+        input_ids = torch.tensor(input_ids)
         next_item = torch.tensor(next_item)
+    
+        item_cnt_ref = self.item_cnt_ref.clone()
         seq_max_len = torch.zeros(self.max_len)
-        seq_input = torch.tensor(input_ids)
-        seq_input = pad_sequence([seq_input, seq_max_len], batch_first=True)[0]
-        idx, cnt = torch.unique(seq_input, return_counts=True) # 
+        input_ids = pad_sequence([input_ids, seq_max_len], batch_first=True)[0]
+        
+        idx, cnt = torch.unique(input_ids, return_counts=True)
         item_cnt_ref[idx] += (cnt + self.item_score[idx])
         return item_cnt_ref[next_item]
 

@@ -31,10 +31,8 @@ class SessionPop(nn.Module):
     def fit(self, train_loader):
         pbar = tqdm(train_loader)
         for item_seq,_ in pbar:
-            print('before',self.item_cnt_ref)
             idx, cnt = self.forward(item_seq)
             self.item_cnt_ref[idx] += cnt
-            print('after', self.item_cnt_ref)
         self.item_score =  self.item_cnt_ref/(1+self.item_cnt_ref)
 
     def predict(self, input_ids, next_item):
@@ -59,9 +57,6 @@ class SessionPop(nn.Module):
             cnt = torch.ones_like(scores)
             scores = scores.scatter_add_(1, item_seq, cnt)
         scs, ids = torch.sort(scores[:, 1:], descending=True)
-        ids += 1    
+        ids += 1
 
-        if topk is None or topk > self.item_num:
-            return ids, scs
-        else:
-            return ids[:topk], scs[:topk]
+        return (ids, scs) if topk is None or topk > self.item_num else (ids[:topk], scs[:topk])

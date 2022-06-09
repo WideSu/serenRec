@@ -21,6 +21,7 @@ class SessionPop(nn.Module):
         self.item_num = config['item_num']
         self.item_cnt_ref = torch.zeros(1 + config['item_num']) # the index starts from 1
         self.max_len = config['max_len']
+        self.device = config['device']
         self.item_score = None
 
     def forward(self, item_seq):
@@ -29,34 +30,50 @@ class SessionPop(nn.Module):
         return idx, cnt
 
     def fit(self, train_loader):
+        self.to(self.device)
+        self.train()
+
         pbar = tqdm(train_loader)
         for item_seq,_ in pbar:
+            item_seq = item_seq.to(self.device)
             idx, cnt = self.forward(item_seq)
             self.item_cnt_ref[idx] += cnt
-        self.item_score =  self.item_cnt_ref/(1+self.item_cnt_ref)
+        self.item_score =  self.item_cnt_ref / (1+self.item_cnt_ref)
 
     def predict(self, input_ids, next_item):
-        input_ids = torch.tensor(input_ids)
-        next_item = torch.tensor(next_item)
+        self.eval()
+
+        input_ids = torch.tensor(input_ids).to(self.device)
+        next_item = torch.tensor(next_item).to(self.device)
     
         item_cnt_ref = self.item_cnt_ref.clone()
-        seq_max_len = torch.zeros(self.max_len)
+        seq_max_len = torch.zeros(self.max_len).to(self.device)
         input_ids = pad_sequence([input_ids, seq_max_len])[0]
         
         idx, cnt = torch.unique(input_ids, return_counts=True)
         item_cnt_ref[idx] += (cnt + self.item_score[idx])
-        return item_cnt_ref[next_item].item()
+        return item_cnt_ref[next_item].detach().cpu().item()
 
 
     def rank(self, test_loader, topk=None, candidates=None):
-        pbar = tqdm(test_loader)
-        for item_seq,_ in pbar:
-            scores = self.item_score.clone()
-            scores = scores.tile((item_seq.shape[0], 1))
-            # target = torch.zeros_like(item_score)
-            cnt = torch.ones_like(scores)
-            scores = scores.scatter_add_(1, item_seq, cnt)
-        scs, ids = torch.sort(scores[:, 1:], descending=True)
-        ids += 1
+        self.eval()
 
-        return (ids, scs) if topk is None or topk > self.item_num else (ids[:topk], scs[:topk])
+        res_ids, res_scs = torch.tensor([], device=self.device)
+        pbar = tqdm(test_loader)
+        with torch.no_grad():
+            for item_seq,_ in pbar:
+                item_seq = item_seq.to(self.device)
+                scores = self.item_score.clone()
+                scores = scores.tile((item_seq.shape[0], 1))
+                # target = torch.zeros_like(item_score)
+                cnt = torch.ones_like(scores)
+                scores = scores.scatter_add_(1, item_seq, cnt)
+            scs, ids = torch.sort(scores[:, 1:], descending=True)
+            ids += 1
+            
+            if topk is not None and topk <= self.item_num:
+                ids, scs = ids[:topk], scs[:topk]
+            res_ids = torch.cat((res_ids, ids), 0)
+            res_scs = torch.cat((res_scs, scs), 0)
+
+        return res_ids.detach().cpu(), res_scs.detach().cpu()

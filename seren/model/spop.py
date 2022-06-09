@@ -39,11 +39,11 @@ class SessionPop(nn.Module):
     
         item_cnt_ref = self.item_cnt_ref.clone()
         seq_max_len = torch.zeros(self.max_len)
-        input_ids = pad_sequence([input_ids, seq_max_len], batch_first=True)[0]
+        input_ids = pad_sequence([input_ids, seq_max_len])[0]
         
         idx, cnt = torch.unique(input_ids, return_counts=True)
         item_cnt_ref[idx] += (cnt + self.item_score[idx])
-        return item_cnt_ref[next_item]
+        return item_cnt_ref[next_item].item()
 
 
     def rank(self, test_loader, topk=50):

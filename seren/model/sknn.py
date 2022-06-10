@@ -3,7 +3,7 @@ import scipy.sparse as sp
 import pandas as pd
 
 class SKNN(object):
-    def _init_(self,config):
+    def __init__(self,config):
         '''
         SessionKNN
         Parameters

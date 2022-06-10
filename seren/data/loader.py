@@ -14,5 +14,8 @@ def get_df(path):
     i += 1
   return pd.DataFrame.from_dict(df, orient='index')
 
-df = get_df('steam_reviews.json.gz')
-df = get_df('steam_games.json.gz')
+steam_reviews = get_df('steam_reviews.json.gz')
+steam_games = get_df('steam_games.json.gz')
+
+steam_reviews.to_json('steam_reviews.json', orient='index')
+steam_games.to_json('steam_games.json', orient='index')

@@ -68,12 +68,12 @@ class SessionPop(nn.Module):
                 # target = torch.zeros_like(item_score)
                 cnt = torch.ones_like(scores)
                 scores = scores.scatter_add_(1, item_seq, cnt)
-            scs, ids = torch.sort(scores[:, 1:], descending=True)
-            ids += 1
-            
-            if topk is not None and topk <= self.item_num:
-                ids, scs = ids[:topk], scs[:topk]
-            res_ids = torch.cat((res_ids, ids), 0)
-            res_scs = torch.cat((res_scs, scs), 0)
+                scs, ids = torch.sort(scores[:, 1:], descending=True)
+                ids += 1
+                
+                if topk is not None and topk <= self.item_num:
+                    ids, scs = ids[:, :topk], scs[:, :topk]
+                res_ids = torch.cat((res_ids, ids), 0)
+                res_scs = torch.cat((res_scs, scs), 0)
 
         return res_ids.detach().cpu(), res_scs.detach().cpu()

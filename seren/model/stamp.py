@@ -196,12 +196,23 @@ class STAMP(nn.Module):
             _type_: _description_
         """        
         self.eval()
-        item_seq, _ = next(iter(test_loader))
-        output = self.forward(item_seq)
-        logits = self.sigmoid(torch.matmul(output, self.item_embedding.weight.transpose(0, 1)))
-        scores = self.softmax(logits)
-        scs, ids = torch.sort(scores[:, 1:], descending=True)[:, :topk]
-        ids += 1
 
-        return ids, scs
+        res_ids, res_scs = torch.tensor([], device=self.device)
+        pbar = tqdm(test_loader)
+        with torch.no_grad():
+            for item_seq,_ in pbar:
+                item_seq = item_seq.to(self.device)
+                output = self.forward(item_seq)
+                logits = self.sigmoid(torch.matmul(output, self.item_embedding.weight.transpose(0, 1)))
+                scores = self.softmax(logits)
+                scs, ids = torch.sort(scores[:, 1:], descending=True)
+                ids += 1
+
+                if topk is not None and topk <= self.item_num:
+                    ids, scs = ids[:, :topk], scs[:, :topk]
+
+                res_ids = torch.cat((res_ids, ids), 0)
+                res_scs = torch.cat((res_scs, scs), 0)
+
+        return res_ids.detach().cpu(), res_scs.detach().cpu()
 

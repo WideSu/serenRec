@@ -11,23 +11,49 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from tqdm import tqdm
+import torch.nn.functional as F
 
 class STAMP(nn.Module):
     def __init__(self, config):
         '''
-        __init__ _summary_
+        STAMP Recommender
 
-        :param config: _description_
-        :type config: _type_
-        '''        
+        Parameters
+        ----------
+        embedding_dim : int
+            embedding dimension for items, default is 100
+        mlp_a_dim : int
+            dimension for the hidden layer of MLP A, default is the same as `embedding_dim`
+        mlp_b_dim : int
+            dimension for the hidden layer of MLP B, default is the same as `embedding_dim`
+        learning_rate : float
+            learning rate, default is 0.005
+        weight_decay : float
+            weight decaying rate for learning rate, default is 1.0
+        n_epoch : int
+            epochs for training, default is 30
+        early_stop : bool
+            activate early stop mechanism or not, default is True
+        learner : String
+            name of optimizaer used for training, default is 'sgd'
+        device : String
+            running type for code, default is 'cpu'
+        max_len : int
+            maximum length for one session
+        use_attention : bool
+            use STAMP or STMP, default is True (for STAMP)
+        item_num : int
+            the number of unique items in training set
+        '''              
         super(STAMP, self).__init__()
-        self.embedding_dim = config['embedding_dim'] # default is 100
-        self.lr = config['learning_rate'] # default is 0.005
-        self.wd = config['weight_decay']  # default is 1.0
-        self.n_epoch = config['n_epoch'] # default is 30
-        self.batch_size = config['batch_size'] # default is 512
+        self.embedding_dim = config['embedding_dim']
+        self.lr = config['learning_rate']
+        self.wd = config['weight_decay']  
+        self.n_epoch = config['n_epoch'] 
         self.early_step = config['early_step']
-        self.learner = config['learner'] # default is 'sgd'
+        self.learner = config['learner']
+        self.device = config['device']
+        self.max_len = config['max_len']
 
         self.mlp_a_dim = self.embedding_dim if config['mlp_a_dim'] is None else config['mlp_a_dim']
         self.mlp_b_dim = self.embedding_dim if config['mlp_b_dim'] is None else config['mlp_b_dim']
@@ -120,9 +146,8 @@ class STAMP(nn.Module):
         return optimizer
 
     def fit(self, train_loader):
-        self.train()
+        self.to(self.device)
         # calculate loss
-        # TODO optimizer and loss
         optimizer = self._select_optimizer(learning_rate=self.lr, weight_decay=self.wd)
         criterion = nn.CrossEntropyLoss()
 
@@ -130,7 +155,7 @@ class STAMP(nn.Module):
         for epoch in range(1, self.n_epoch + 1):
             self.train()
 
-            current_loss = 0.
+            current_loss, sample_cnt = 0., 0
             pbar = tqdm(train_loader)
             pbar.set_description(f'[Epoch {epoch:03d}]')
             for item_seq, next_item in pbar:
@@ -147,8 +172,9 @@ class STAMP(nn.Module):
                 optimizer.step()
                 pbar.set_postfix(loss=loss.item())
                 current_loss += loss.item()
+                sample_cnt += 1
 
-            current_loss /= len(train_loader)
+            current_loss /= sample_cnt
 
             self.eval()
             delta_loss = float(current_loss - last_loss)
@@ -174,16 +200,20 @@ class STAMP(nn.Module):
         -------
         scores : float
             predicted scores of corresponding target items
-        '''          
+        '''      
+        if len(input_ids) > self.max_len or len(input_ids) == 0:
+            raise ValueError(f'Invalid sequence length to predict, current supported maximum length is {self.max_len}...')
+
         self.eval()
-        item_seq = torch.tensor(input_ids)
-        next_item = torch.tensor(next_item)
+        item_seq = torch.tensor(input_ids).to(self.device)
+        item_seq = F.pad(item_seq, (0, self.max_len - len(input_ids))).unsqueeze(0)
+        next_item = torch.tensor(next_item).to(self.device)
 
         seq_output = self.forward(item_seq)
         next_item_emb = self.item_embedding(next_item)
-
         score = torch.mul(seq_output, next_item_emb).sum(dim=1) 
-        return score
+
+        return score.detach().cpu().item()
 
     def rank(self, test_loader,topk=50):
         """_summary_
@@ -197,10 +227,10 @@ class STAMP(nn.Module):
         """        
         self.eval()
 
-        res_ids, res_scs = torch.tensor([], device=self.device)
+        res_ids, res_scs = torch.tensor([]).to(self.device), torch.tensor([]).to(self.device)
         pbar = tqdm(test_loader)
         with torch.no_grad():
-            for item_seq,_ in pbar:
+            for item_seq, _ in pbar:
                 item_seq = item_seq.to(self.device)
                 output = self.forward(item_seq)
                 logits = self.sigmoid(torch.matmul(output, self.item_embedding.weight.transpose(0, 1)))

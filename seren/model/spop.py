@@ -58,7 +58,7 @@ class SessionPop(nn.Module):
     def rank(self, test_loader, topk=None, candidates=None):
         self.eval()
 
-        res_ids, res_scs = torch.tensor([], device=self.device)
+        res_ids, res_scs = torch.tensor([]).to(self.device), torch.tensor([]).to(self.device)
         pbar = tqdm(test_loader)
         with torch.no_grad():
             for item_seq,_ in pbar:

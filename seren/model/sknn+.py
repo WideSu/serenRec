@@ -63,9 +63,14 @@ class SKNN(object):
         self.binary_train_matrix = self.train_matrix.copy()
         self.binary_train_matrix.data = np.ones_like(self.binary_train_matrix.data)
 
+    def predict(self, input_ids, next_item):
+        pass
+
+    def _compute_similarity(self):
+        pass
+
+
     def rank(self, test_loader, topk=50):
-
-
         res_scs, res_ids = [], []
         for item_seq in test_loader:
             new_session = sp.lil_matrix(1, self.item_num + 1)
@@ -109,8 +114,12 @@ class SKNN(object):
         return sim
 
     def _compute_jaccard(self, session1, sessions):
-        self.binary_train_matrix
-        pass
+        # row, col = self.binary_train_matrix.nonzero()
+        nominator = session1.dot(self.binary_train_matrix.T).A.squeeze()
+        batch_sum = (sp.vstack([session1 for _ in range(self.session_num)]) + sessions)
+        batch_sum.data = np.ones_like(batch_sum.data)
+        denominator = batch_sum.sum(axis = 1).A.reshape(-1)
+        return nominator / denominator
   
             
             

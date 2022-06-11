@@ -1,34 +1,42 @@
 import numpy as np
 import pandas as pd
 import scipy.sparse as sp
+import scipy
 
 class SKNN(object):
     def __init__(self,config):
         '''
         SessionKNN
+
         Parameters
         -----------
         k : int
-            Number of neighboring session to calculate the item scores from. (Default value: 100)
-        asymmetric_alpha:
-        similarity:
+            Number of neighboring session to calculate the item scores from, default is 100.
+        asymmetric_alpha : float
+            When using asymmetric cosine similarity, it permits ad-hoc optimizations of the similarity function for the domain of interest, default is 0.5.
+        similarity : String
+            The function to use for calculating the similarity, default is 'jaccard'. 
+        shrink : float
+            The value added to the similarity denominator which ensure that it != 0, default is 0.
+        normalize : bool
+            Whether to divide the dot product by the product of the norms, default is True.
+        item_num : int
+            The number of unique items in training set. 
+        session_num : int
+            The number of sessions in the training set.
+        
 
         '''
-        self.asymmetric_alpha = config['asymmetric_alpha'] # 0.5
-        self.similarity = config['similarity'] # 'cosine'
-        self.k = config['k'] # 50
-        self.shrink = config['shrink'] # 0
-        self.normalize = config['normalize'] # True
-        self.asymmetric_cosine = config['asymmetric_cosine']
-        self.session_key = config['session_key']
-        self.item_key = config['item_key']
-        self.time_key = config['time_key']
+        self.asymmetric_alpha = config['asymmetric_alpha']
+        self.similarity = config['similarity']
+        self.k = config['k']
+        self.shrink = config['shrink'] 
+        self.normalize = config['normalize'] 
 
         self.item_num = config['item_num']
         self.session_num = config['session_num']
 
-        self.jaccard_correlation = False
-        self.pearson_correlation = False
+        self.asymmetric_cosine = False
 
     def fit(self, train_loader):
         '''
@@ -36,46 +44,73 @@ class SKNN(object):
 
         Parameters
         ----------
-        train_loader : _generator_
-            agenerator to yied session sequence (list) one-by-one
+        train_loader : generator
+            A generator to yied session list and corresponding next item one-by-one, such as [1,2,3,0,0], [4]
         '''
         current_session_idx = 0
-        self.binary_train_matrix = sp.lil_matrix((self.session_num, self.item_num + 1), dtype=np.int8)
         self.train_matrix = sp.lil_matrix((self.session_num, self.item_num + 1))
         
-        for item_seq in train_loader:
+        for item_seq, next_item in train_loader:
             if current_session_idx >= self.session_num:
                 print(f'More sessions than expected, current maximum number of recording session: {self.session_num}')
                 break
-            ids = np.zeros((len(item_seq), 2), dtype=np.int8)
-            ids[:, 1] = np.array(item_seq)
-            ids[:, 0] = np.ones_like(item_seq) * current_session_idx
-            for r, c in ids:
-                self.binary_train_matrix[r, c] = 1
-                self.train_matrix[r, c] += 1
+            item_seq = item_seq + next_item
+            for c in item_seq:
+                if c != 0:
+                    self.train_matrix[current_session_idx, c] += 1       
             current_session_idx += 1
-        # finish filling the binary interaction matrix
-        self.binary_train_matrix = self.binary_train_matrix.tocsr()
         self.train_matrix = self.train_matrix.tocsr()
+        self.binary_train_matrix = self.train_matrix.copy()
+        self.binary_train_matrix.data = np.ones_like(self.binary_train_matrix.data)
 
-    def rank(self, test_loader):
-        if self.similarity == 'jaccard':
-            self.normalize = False
-            self.jaccard_correlation=True
-        elif self.similarity == 'pearson':
-            self.pearson_correlation = True
-
-        if self.pearson_correlation:
-            self.apply_pearson_correlation()
-
-        if self.jaccard_correlation:
-            self.use_boolean_interactions()
+    def rank(self, test_loader, topk=50):
 
 
-        current_session_idx = self.train_matrix.shape[0]
+        res_scs, res_ids = [], []
         for item_seq in test_loader:
-            idx, cnts = np.unique(item_seq, return_counts=True)
-            new_session = np.array(self.item_num + 1)
-            new_session[idx] = cnts
+            new_session = sp.lil_matrix(1, self.item_num + 1)
+            for c in item_seq:
+                if c != 0:
+                    new_session[0, c] += 1
+            new_session = new_session.tocsr()
+            if self.similarity == 'jaccard':
+                binary_new_session = new_session.copy()
+                binary_new_session.data = np.ones_like(binary_new_session.data)
+                sim_vec = self._compute_jaccard(binary_new_session, self.binary_train_matrix)
+            else:
+                sim_vec = self._compute_cosine(new_session, self.train_matrix)
+            # K-NN for (session_num) array
+            top_k_idx = (-sim_vec).argpartition(self.k-1)[0:self.k]
+            mask = np.zeros_like(sim_vec)
+            mask[top_k_idx] = 1
+            sim_vec = sim_vec * mask
+            sim_vec = sp.csr_matrix(sim_vec)  # 1 * session_num
+            score = sim_vec.dot(self.binary_train_matrix).A.squeeze() # (1, session_num) (session_num, item_num) -> (1, item_num)
+            ids = np.argsort(score[1:])[::-1]
+            ids += 1
+            scs = score[ids]
+            if topk is not None and topk <= self.item_num:
+                ids, scs = ids[:topk], scs[:topk]
+
+            res_ids.append(ids)
+            res_scs.append(scs)
+
+    
+    def _compute_cosine(self, session1, sessions):
+        numerator = session1.dot(sessions.T).A.squeeze() # (1, item_num) (item_num, session_num) -> (1, session_num) -> (session_num,)
+        s1_norm = np.sqrt(session1.power(2).sum()) # single value
+        ss_norm = np.sqrt(sessions.power(2).sum(axis=1).A).reshape(-1)  # (session_num, 1) array -> (session_num,) array
+        if self.asymmetric_cosine:
+            s1_norm = np.power(s1_norm + 1e-6, 2 * self.asymmetric_alpha)
+            ss_norm = np.power(ss_norm + 1e-6, 2 * (1 - self.asymmetric_alpha))
+        denominator = s1_norm * ss_norm
+        sim = numerator / denominator
+
+        return sim
+
+    def _compute_jaccard(self, session1, sessions):
+        self.binary_train_matrix
+        pass
+  
             
             

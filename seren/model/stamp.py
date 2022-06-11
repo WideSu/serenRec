@@ -60,7 +60,7 @@ class STAMP(nn.Module):
         elif type(m) == nn.Embedding:
             nn.init.normal_(m.weight.data, 0, 0.002)
             with torch.no_grad():
-                m.weight[0] = torch.zeros(3)
+                m.weight[0] = torch.zeros(self.embedding_dim)
 
     def forward(self, item_seq):
         item_seq_len = torch.count_nonzero(item_seq, dim=1)

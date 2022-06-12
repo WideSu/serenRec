@@ -54,11 +54,12 @@ class STAMP(nn.Module):
         self.learner = config['learner']
         self.device = config['device']
         self.max_len = config['max_len']
+        self.item_num = config['item_num']
 
         self.mlp_a_dim = self.embedding_dim if config['mlp_a_dim'] is None else config['mlp_a_dim']
         self.mlp_b_dim = self.embedding_dim if config['mlp_b_dim'] is None else config['mlp_b_dim']
 
-        self.item_embedding = nn.Embedding(config['item_num'] + 1, self.embedding_dim, padding_idx=0)
+        self.item_embedding = nn.Embedding(self.item_num + 1, self.embedding_dim, padding_idx=0)
         self.mlp_a = nn.Linear(self.embedding_dim, self.mlp_a_dim)
         self.mlp_b = nn.Linear(self.embedding_dim, self.mlp_b_dim)
 

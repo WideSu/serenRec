@@ -90,6 +90,7 @@ class SKNN(object):
 
     def predict(self, input_ids, next_item):
         # TODO
+
         pass
 
     def _compute_similarity(self):
@@ -130,6 +131,7 @@ class SKNN(object):
 
             res_ids.append(ids)
             res_scs.append(scs)
+        return res_ids, res_scs
 
     def _compute_cosine(self, session1, sessions):
         ''' TODO 用latex 写一下sim的公式, 写完把这个todo删掉

@@ -96,7 +96,7 @@ class STAMP(nn.Module):
         x_i = self.item_embedding(item_seq) 
         # batch_size * 1 * embedding_dim, x_t = m_t
         x_t = x_i.gather(
-            dim=1, index=last_index.view(-1, 1, 1).expand(-1, -1 ,item_seq.shape[-1])).squeeze(1)
+            dim=1, index=last_index.view(-1, 1, 1).expand(-1, -1 ,x_i.shape[-1])).squeeze(1)
         m_s = torch.div(torch.sum(x_i, dim=1), item_seq_len.unsqueeze(1).float())
         
         if self.use_attention:

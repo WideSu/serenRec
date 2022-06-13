@@ -90,7 +90,17 @@ class SKNN(object):
 
     def predict(self, input_ids, next_item):
         # TODO
+        res_ids,res_scs = [], []
+        sim_vec = self._compute_similarity(input_ids)
+        score = sim_vec.dot(self.binary_train_matrix).A.squeeze() # (1, session_num) (session_num, item_num) -> (1, item_num)
+        ids = np.argsort(score[1:])[::-1]
+        ids += 1
+        scs = score[ids]
+        if self.k is not None and self.k <= self.item_num:
+            ids, scs = ids[:self.k], scs[:self.k]
 
+        res_ids.append(ids)
+        res_scs.append(scs)
         pass
 
     def _compute_similarity(self, input_ids):

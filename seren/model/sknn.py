@@ -90,15 +90,10 @@ class SKNN(object):
 
     def predict(self, input_ids, next_item):
         # TODO
-        res_ids,res_scs = [], []
         sim_vec = self._compute_similarity(input_ids)
-        score = sim_vec.dot(self.binary_train_matrix).A.squeeze() # (1, session_num) (session_num, item_num) -> (1, item_num)
-        ids = np.argsort(score[1:])[::-1]
-        ids += 1
-        scs = score[ids]
-        res_ids.append(ids)
-        res_scs.append(scs)
-        return res_scs[next_item]
+        score = sim_vec.dot(self.binary_train_matrix[:, next_item]).A.squeeze() # (1, session_num) (session_num, 1) -> (1, 1)
+
+        return score.A[0]
 
     def _compute_similarity(self, input_ids):
         # TODO 先把rank里昨晚说过的部分提取到这, 然后再写predict

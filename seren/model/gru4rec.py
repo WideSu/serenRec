@@ -51,6 +51,8 @@ class GRU4REC(nn.Module):
             the maximum length for a session
         item_num : int
             the number of unique items in training set
+        loss_type : String
+            loss function name, default is `BPR`
         '''        
         super(GRU4REC, self).__init__()
         self.embedding_dim = config['embedding_dim']
@@ -65,6 +67,7 @@ class GRU4REC(nn.Module):
         self.device = config['device']
         self.max_len = config['max_len']
         self.item_num = config['item_num']
+        self.loss_type = config['loss_type']
 
         self.item_embedding = nn.Embedding(self.item_num + 1, self.embedding_dim, padding_idx=0)
         self.embed_dropout = nn.Dropout(self.dropout_rate)
@@ -115,11 +118,14 @@ class GRU4REC(nn.Module):
             current_loss, sample_cnt = 0., 0
             pbar = tqdm(train_loader)
             pbar.set_description(f'[Epoch {epoch:03d}]')
-            for item_seq, next_item in pbar:
+            for item_seq, next_item, _ in pbar:
                 self.zero_grad()
-                output = self.forward(item_seq)
-                logits = torch.matmul(output, self.item_embedding.weight.transpose(0, 1))
-                loss = criterion(logits, next_item)
+                if self.loss_type in ['CE']:
+                    output = self.forward(item_seq)
+                    logits = torch.matmul(output, self.item_embedding.weight.transpose(0, 1))
+                    loss = criterion(logits, next_item)
+                elif self.loss_type in ['BPR', 'TOP1']:
+                    pass
 
                 if torch.isnan(loss):
                     raise ValueError(f'Loss=Nan or Infinity: current settings does not fit the recommender')

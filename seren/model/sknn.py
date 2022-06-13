@@ -93,36 +93,37 @@ class SKNN(object):
 
         pass
 
-    def _compute_similarity(self):
+    def _compute_similarity(self, input_ids):
         # TODO 先把rank里昨晚说过的部分提取到这, 然后再写predict
-        for item_seq,
-        pass
+        new_session = sp.lil_matrix(1, self.item_num + 1)
+        for c in input_ids:
+            if c != 0:
+                new_session[0, c] += 1
+        new_session = new_session.tocsr()
+        if self.similarity == 'jaccard':
+            binary_new_session = new_session.copy()
+            binary_new_session.data = np.ones_like(binary_new_session.data)
+            sim_vec = self._compute_jaccard(binary_new_session, self.binary_train_matrix)
+        else:
+            sim_vec = self._compute_cosine(new_session, self.train_matrix)
+
+        if self.normalize:
+            sim_vec = sim_vec / np.sum(sim_vec)
+
+        # K-NN for (session_num) array
+        top_k_idx = (-sim_vec).argpartition(self.k-1)[0:self.k]
+        mask = np.zeros_like(sim_vec)
+        mask[top_k_idx] = 1
+        sim_vec = sim_vec * mask
+        sim_vec = sp.csr_matrix(sim_vec)  # 1 * session_num
+
+        return sim_vec
 
 
     def rank(self, test_loader, topk=50):
         res_scs, res_ids = [], []
         for item_seq,_ in test_loader:
-            new_session = sp.lil_matrix(1, self.item_num + 1)
-            for c in item_seq:
-                if c != 0:
-                    new_session[0, c] += 1
-            new_session = new_session.tocsr()
-            if self.similarity == 'jaccard':
-                binary_new_session = new_session.copy()
-                binary_new_session.data = np.ones_like(binary_new_session.data)
-                sim_vec = self._compute_jaccard(binary_new_session, self.binary_train_matrix)
-            else:
-                sim_vec = self._compute_cosine(new_session, self.train_matrix)
-
-            if self.normalize:
-                sim_vec = sim_vec / np.sum(sim_vec)
-
-            # K-NN for (session_num) array
-            top_k_idx = (-sim_vec).argpartition(self.k-1)[0:self.k]
-            mask = np.zeros_like(sim_vec)
-            mask[top_k_idx] = 1
-            sim_vec = sim_vec * mask
-            sim_vec = sp.csr_matrix(sim_vec)  # 1 * session_num
+            sim_vec = self._compute_similarity(item_seq)
             score = sim_vec.dot(self.binary_train_matrix).A.squeeze() # (1, session_num) (session_num, item_num) -> (1, item_num)
             ids = np.argsort(score[1:])[::-1]
             ids += 1

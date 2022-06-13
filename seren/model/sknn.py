@@ -96,9 +96,6 @@ class SKNN(object):
         ids = np.argsort(score[1:])[::-1]
         ids += 1
         scs = score[ids]
-        if self.k is not None and self.k <= self.item_num:
-            ids, scs = ids[:self.k], scs[:self.k]
-
         res_ids.append(ids)
         res_scs.append(scs)
         return res_scs[next_item]

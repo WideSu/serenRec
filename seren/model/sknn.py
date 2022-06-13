@@ -95,6 +95,7 @@ class SKNN(object):
 
     def _compute_similarity(self):
         # TODO 先把rank里昨晚说过的部分提取到这, 然后再写predict
+        for item_seq,
         pass
 
 

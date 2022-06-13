@@ -101,7 +101,7 @@ class SKNN(object):
 
         res_ids.append(ids)
         res_scs.append(scs)
-        pass
+        return res_scs[next_item]
 
     def _compute_similarity(self, input_ids):
         # TODO 先把rank里昨晚说过的部分提取到这, 然后再写predict

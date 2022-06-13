@@ -136,8 +136,8 @@ class SKNN(object):
         return res_ids, res_scs
 
     def _compute_cosine(self, session1, sessions):
-        ''' TODO 用latex 写一下sim的公式, 写完把这个todo删掉
-        cosine similarity = 
+        '''
+        cosine similarity = \frac{\sum \limits_{i \in I(s1, s2)}count_{s_1,i} * count_{s_2,i}}{\sqrt{\sum \limits_{i \in I(s1, s2)}count_{s_1, i}^2}  \sqrt{\sum \limits_{i \in I(s1, s2)}count_{s_2, i}^2} } 
         '''
         numerator = session1.dot(sessions.T).A.squeeze() # (1, item_num) (item_num, session_num) -> (1, session_num) -> (session_num,)
         s1_norm = np.sqrt(session1.power(2).sum()) # single value
@@ -151,8 +151,8 @@ class SKNN(object):
         return sim
 
     def _compute_jaccard(self, session1, sessions):
-        ''' TODO 用latex 写一下sim的公式, 写完把这个todo删掉
-        jaccard similarity = 
+        '''
+        jaccard similarity = \frac{I_{s_1} \cap I_{s_2}}{I_{s_1} \cup I_{s_2}}
         '''
         nominator = session1.dot(self.binary_train_matrix.T).A.squeeze()
         batch_sum = (sp.vstack([session1 for _ in range(self.session_num)]) + sessions)

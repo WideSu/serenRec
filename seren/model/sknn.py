@@ -79,7 +79,7 @@ class SKNN(object):
             if current_session_idx > self.session_num:
                 print(f'More sessions than expected, current maximum number of recording session: {self.session_num}')
                 break
-            item_seq = item_seq + next_item
+            item_seq = item_seq + [next_item]
             for c in item_seq:
                 if c != 0:
                     self.train_matrix[current_session_idx, c] += 1       

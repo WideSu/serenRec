@@ -65,7 +65,7 @@ class SBPR(nn.Module):
 
         self.item_embed = nn.Embedding(self.item_num+1, self.embedding_dim, padding_idx=0)
         
-        self.apply(self._init_weight())
+        self.apply(self._init_weight)
     
     def _init_weight(self, m):        
         if type(m) == nn.Embedding:

@@ -78,7 +78,7 @@ class STAMP(nn.Module):
         self.tanh = nn.Tanh()
         self.softmax = nn.Softmax()
 
-        self.apply(self._init_weight())
+        self.apply(self._init_weight)
 
         self.use_attention = config['use_attention'] # True for STAMP, o.w. STMP
 

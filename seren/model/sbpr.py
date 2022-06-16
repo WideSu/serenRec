@@ -114,7 +114,9 @@ class SBPR(nn.Module):
             pbar = tqdm(train_loader)
             pbar.set_description(f'[Epoch {epoch:03d}]')
             for item_seq, pos_next_item, neg_next_item in pbar:
-
+                item_seq = item_seq.to(self.device)
+                pos_next_item = pos_next_item.to(self.device)
+                neg_next_item = neg_next_item.to(self.device)
                 self.zero_grad()
                 r_si = self.forward(item_seq, pos_next_item)
                 r_sj = self.forward(item_seq, neg_next_item)

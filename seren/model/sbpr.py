@@ -23,7 +23,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 from tqdm import tqdm
 
-class SBPRobject(nn.Module):
+class SBPR(nn.Module):
     def __init__(self, config):
         '''
         Session-BPR Recommender
@@ -50,14 +50,15 @@ class SBPRobject(nn.Module):
             running type for code, default is 'cpu'
         learner : String
             name of optimizer used for training, default is 'sgd'
-        '''      
+        '''     
+        super(SBPR, self).__init__() 
         self.item_num = config['item_num']
         self.embedding_dim = config['embedding_dim']
         self.lambda_item = config['lambda_item']
         self.lr = config['learning_rate']
         self.wd = config['weight_decay']
         self.n_epoch = config['n_epoch']
-        self.early_step = config['early_step']
+        self.early_stop = config['early_stop']
         self.max_len = config['max_len']
         self.device = config['device']
         self.learner = config['learner']

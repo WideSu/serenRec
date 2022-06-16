@@ -5,7 +5,7 @@ import random
 import numpy as np
 import pandas as pd
 
-class Preprocess():
+class Preprocess(object):
     @staticmethod
     def clean_review_data(df=None):
         """
@@ -128,7 +128,7 @@ class Preprocess():
         return training_part, rest_part
 
     @staticmethod
-    def to_sequence(df=None, drop_flag=False, drop_ratio=0.05, aug_flag=True):
+    def to_sequence(df=None, max_session_len=5, drop_flag=False, drop_ratio=0.05, aug_flag=True):
         """
             This static method is used to generate sequence, do dropout and do augmentation
         :param df: The dataframe of steam review data. (pandas.DataFrame, default value: None)
@@ -180,8 +180,8 @@ class Preprocess():
                 tmp_seq = [i for i in tmp_seq if i != 0]
                 tmp_seq += [0] * (max_session_len - len(tmp_seq))
                 tmp_seq = json.dumps(tmp_seq)
-                drop_df['sequence'][index] = tmp_seq
-                seq_df = drop_df
+                seq_data['sequence'][index] = tmp_seq
+                seq_df = seq_data
         if aug_flag:
             drop_df_cp = copy.deepcopy(seq_df)
             ss_id = -1

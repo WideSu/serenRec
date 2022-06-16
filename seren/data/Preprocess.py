@@ -181,7 +181,7 @@ class Preprocess(object):
                 tmp_seq += [0] * (max_session_len - len(tmp_seq))
                 tmp_seq = json.dumps(tmp_seq)
                 seq_data['sequence'][index] = tmp_seq
-                seq_df = seq_data
+            seq_df = seq_data
         if aug_flag:
             drop_df_cp = copy.deepcopy(seq_df)
             ss_id = -1

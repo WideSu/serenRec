@@ -156,6 +156,8 @@ class STAMP(nn.Module):
             pbar = tqdm(train_loader)
             pbar.set_description(f'[Epoch {epoch:03d}]')
             for item_seq, pos_next_item, neg_next_item in pbar:
+                item_seq = item_seq.to(self.device)
+                pos_next_item = pos_next_item.to(self.device)
                 self.zero_grad()
                 output = self.forward(item_seq)
                 if self.loss_type in ['CE']:
@@ -164,6 +166,7 @@ class STAMP(nn.Module):
                     criterion = nn.CrossEntropyLoss()
                     loss = criterion(pred_y, pos_next_item)
                 elif self.loss_type in ['BPR', 'TOP1']:
+                    neg_next_item = neg_next_item.to(self.device)
                     pos_items_emb = self.item_embedding(pos_next_item)
                     neg_items_emb = self.item_embedding(neg_next_item)
                     pos_score = torch.sum(output * pos_items_emb, dim=-1)  # [B]

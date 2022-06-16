@@ -78,12 +78,6 @@ class SBPRobject(nn.Module):
         learning_rate = kwargs.pop('learning_rate', self.lr)
         weight_decay = kwargs.pop('weight_decay', self.wd)
 
-        if self.config['reg_weight'] and weight_decay and weight_decay * self.config['reg_weight'] > 0:
-            self.logger.warning(
-                'The parameters [weight_decay] and [reg_weight] are specified simultaneously, '
-                'which may lead to double regularization.'
-            )
-
         if learner.lower() == 'adam':
             optimizer = optim.Adam(params, lr=learning_rate, weight_decay=weight_decay)
         elif learner.lower() == 'sgd':
@@ -118,11 +112,11 @@ class SBPRobject(nn.Module):
             current_loss, sample_cnt = 0, 0
             pbar = tqdm(train_loader)
             pbar.set_description(f'[Epoch {epoch:03d}]')
-            for item_seq, next_item_i, next_item_j in pbar:
+            for item_seq, pos_next_item, neg_next_item in pbar:
 
                 self.zero_grad()
-                r_si = self.forward(item_seq, next_item_i)
-                r_sj = self.forward(item_seq, next_item_j)
+                r_si = self.forward(item_seq, pos_next_item)
+                r_sj = self.forward(item_seq, neg_next_item)
                 loss = -(r_si - r_sj).sigmoid().log().mean() + self.lambda_item * self.item_embed.weight.norm()
                 if torch.isnan(loss):
                     raise ValueError(f'Loss=Nan or Infinity: current settings does not fit the recommender')

@@ -44,6 +44,8 @@ class STAMP(nn.Module):
             use STAMP or STMP, default is True (for STAMP)
         item_num : int
             the number of unique items in training set
+        loss_type : String
+            the loss function type, default is CE
         '''              
         super(STAMP, self).__init__()
         self.embedding_dim = config['embedding_dim']
@@ -55,6 +57,7 @@ class STAMP(nn.Module):
         self.device = config['device']
         self.max_len = config['max_len']
         self.item_num = config['item_num']
+        self.loss_type = config['loss_type']
 
         self.mlp_a_dim = self.embedding_dim if config['mlp_a_dim'] is None else config['mlp_a_dim']
         self.mlp_b_dim = self.embedding_dim if config['mlp_b_dim'] is None else config['mlp_b_dim']
@@ -127,12 +130,6 @@ class STAMP(nn.Module):
         learning_rate = kwargs.pop('learning_rate', self.lr)
         weight_decay = kwargs.pop('weight_decay', self.wd)
 
-        if self.config['reg_weight'] and weight_decay and weight_decay * self.config['reg_weight'] > 0:
-            self.logger.warning(
-                'The parameters [weight_decay] and [reg_weight] are specified simultaneously, '
-                'which may lead to double regularization.'
-            )
-
         if learner.lower() == 'adam':
             optimizer = optim.Adam(params, lr=learning_rate, weight_decay=weight_decay)
         elif learner.lower() == 'sgd':
@@ -150,7 +147,6 @@ class STAMP(nn.Module):
         self.to(self.device)
         # calculate loss
         optimizer = self._select_optimizer(learning_rate=self.lr, weight_decay=self.wd)
-        criterion = nn.CrossEntropyLoss()
 
         last_loss = 0.
         for epoch in range(1, self.n_epoch + 1):
@@ -159,12 +155,22 @@ class STAMP(nn.Module):
             current_loss, sample_cnt = 0., 0
             pbar = tqdm(train_loader)
             pbar.set_description(f'[Epoch {epoch:03d}]')
-            for item_seq, next_item, _ in pbar:
+            for item_seq, pos_next_item, neg_next_item in pbar:
                 self.zero_grad()
                 output = self.forward(item_seq)
-                logits = self.sigmoid(torch.matmul(output, self.item_embedding.weight.transpose(0, 1)))
-                pred_y = self.softmax(logits)
-                loss = criterion(pred_y, next_item)
+                if self.loss_type in ['CE']:
+                    logits = self.sigmoid(torch.matmul(output, self.item_embedding.weight.transpose(0, 1)))
+                    pred_y = self.softmax(logits)
+                    criterion = nn.CrossEntropyLoss()
+                    loss = criterion(pred_y, pos_next_item)
+                elif self.loss_type in ['BPR', 'TOP1']:
+                    pos_items_emb = self.item_embedding(pos_next_item)
+                    neg_items_emb = self.item_embedding(neg_next_item)
+                    pos_score = torch.sum(output * pos_items_emb, dim=-1)  # [B]
+                    neg_score = torch.sum(output * neg_items_emb, dim=-1)  # [B]
+                    loss = -torch.log(1e-10 + torch.sigmoid(pos_score - neg_score)).mean()
+                else:
+                    raise ValueError(f'Invalid Loss type: {self.loss_type}...')
 
                 if torch.isnan(loss):
                     raise ValueError(f'Loss=Nan or Infinity: current settings does not fit the recommender')

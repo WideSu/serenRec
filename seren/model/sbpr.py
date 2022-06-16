@@ -159,7 +159,8 @@ class SBPRobject(nn.Module):
         res_ids,res_scs = torch.tensor([]).to(self.device),torch.tensor([]).to(self.device)
         pbar = tqdm(test_loader)
         with torch.no_grad():
-            for item_seq, _ in pbar:
+            for btch in pbar:
+                item_seq = btch[0]
                 item_seq = item_seq.to(self.device)
                 session_items_embed =  self.item_embed(item_seq)
                 session_embed = torch.div(

@@ -34,7 +34,8 @@ class SessionPop(nn.Module):
         self.train()
 
         pbar = tqdm(train_loader)
-        for item_seq,_ in pbar:
+        for btch in pbar:
+            item_seq = btch[0]
             item_seq = item_seq.to(self.device)
             idx, cnt = self.forward(item_seq)
             self.item_cnt_ref[idx] += cnt
@@ -61,7 +62,8 @@ class SessionPop(nn.Module):
         res_ids, res_scs = torch.tensor([]).to(self.device), torch.tensor([]).to(self.device)
         pbar = tqdm(test_loader)
         with torch.no_grad():
-            for item_seq,_ in pbar:
+            for btch in pbar:
+                item_seq = btch[0]
                 item_seq = item_seq.to(self.device)
                 scores = self.item_score.clone()
                 scores = scores.tile((item_seq.shape[0], 1))

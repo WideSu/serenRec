@@ -159,7 +159,7 @@ class STAMP(nn.Module):
             current_loss, sample_cnt = 0., 0
             pbar = tqdm(train_loader)
             pbar.set_description(f'[Epoch {epoch:03d}]')
-            for item_seq, next_item in pbar:
+            for item_seq, next_item, _ in pbar:
                 self.zero_grad()
                 output = self.forward(item_seq)
                 logits = self.sigmoid(torch.matmul(output, self.item_embedding.weight.transpose(0, 1)))
@@ -231,7 +231,8 @@ class STAMP(nn.Module):
         res_ids, res_scs = torch.tensor([]).to(self.device), torch.tensor([]).to(self.device)
         pbar = tqdm(test_loader)
         with torch.no_grad():
-            for item_seq, _ in pbar:
+            for btch in pbar:
+                item_seq = btch[0]
                 item_seq = item_seq.to(self.device)
                 output = self.forward(item_seq)
                 logits = self.sigmoid(torch.matmul(output, self.item_embedding.weight.transpose(0, 1)))

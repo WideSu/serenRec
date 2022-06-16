@@ -75,7 +75,7 @@ class SKNN(object):
         current_session_idx = 0
         self.train_matrix = sp.lil_matrix((self.session_num, self.item_num + 1))
         
-        for item_seq, next_item in train_loader:
+        for item_seq, next_item, _ in train_loader:
             if current_session_idx > self.session_num:
                 print(f'More sessions than expected, current maximum number of recording session: {self.session_num}')
                 break
@@ -124,7 +124,8 @@ class SKNN(object):
 
     def rank(self, test_loader, topk=50):
         res_scs, res_ids = [], []
-        for item_seq,_ in test_loader:
+        for btch in test_loader:
+            item_seq = btch[0]
             sim_vec = self._compute_similarity(item_seq)
             score = sim_vec.dot(self.binary_train_matrix).A.squeeze() # (1, session_num) (session_num, item_num) -> (1, item_num)
             ids = np.argsort(score[1:])[::-1]

@@ -116,8 +116,8 @@ class STAMP(nn.Module):
 
     def _calc_att_score(self, x_i, x_t, m_s):
         timesteps = x_i.size(1)
-        x_t_reshape = x_t.repeat(1, timesteps).view(-1, timesteps, self.embedding_size)
-        m_s_reshape = m_s.repeat(1, timesteps).view(-1, timesteps, self.embedding_size)
+        x_t_reshape = x_t.repeat(1, timesteps).view(-1, timesteps, self.embedding_dim)
+        m_s_reshape = m_s.repeat(1, timesteps).view(-1, timesteps, self.embedding_dim)
 
         alpha = self.W_0(self.sigmoid(
             self.W_1(x_i) + self.W_2(x_t_reshape) + self.W_3(m_s_reshape) + self.b_a))

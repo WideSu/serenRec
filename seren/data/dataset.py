@@ -9,7 +9,7 @@ class SessionDataset(Dataset):
         self.sample_cnt = sample_cnt
         self.df = pd.DataFrame()
         ks = [int(k) for k in item_id_map.keys()]
-        sampler = np.random.randint(low=min(ks), high=max(ks) + 1, size=(sample_cnt, len(self.next_list)))
+        sampler = np.random.randint(low=min(ks), high=max(ks) + 1, size=(sample_cnt, len(next_list)))
         if sample_cnt == 0:
             self.df['sequence'] = seq_list
             self.df['next'] = next_list

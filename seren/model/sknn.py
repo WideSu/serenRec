@@ -97,7 +97,7 @@ class SKNN(object):
 
     def _compute_similarity(self, input_ids):
         # TODO 先把rank里昨晚说过的部分提取到这, 然后再写predict
-        new_session = sp.lil_matrix(1, self.item_num + 1)
+        new_session = sp.lil_matrix((1, self.item_num + 1))
         for c in input_ids:
             if c != 0:
                 new_session[0, c] += 1

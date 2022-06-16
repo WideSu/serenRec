@@ -52,7 +52,7 @@ class STAMP(nn.Module):
         self.lr = config['learning_rate']
         self.wd = config['weight_decay']  
         self.n_epoch = config['n_epoch'] 
-        self.early_step = config['early_step']
+        self.early_stop = config['early_stop']
         self.learner = config['learner']
         self.device = config['device']
         self.max_len = config['max_len']

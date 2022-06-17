@@ -19,9 +19,9 @@ class SessionPop(nn.Module):
     def __init__(self, config):
         super(SessionPop, self).__init__()
         self.item_num = config['item_num']
-        self.item_cnt_ref = torch.zeros(1 + config['item_num']) # the index starts from 1
-        self.max_len = config['max_len']
         self.device = config['device']
+        self.item_cnt_ref = torch.zeros(1 + config['item_num']).to(self.device) # the index starts from 1
+        self.max_len = config['max_len']
         self.item_score = None
 
     def forward(self, item_seq):

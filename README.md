@@ -4,15 +4,8 @@
 
 ---
 
-## Overview
+SeRen is a Python toolkit dealing with *session-based recommendation*. The name Seren stands for **S**ession-bas**E**d **R**comm**E**ndatio**N**.
 
-SeRen is a Python toolkit dealing with *session-based recommendation*.
-
-The name SeRen (roughly :) ) stands for **Se**ssion-based **Re**commendatio**n** Toolkit.
-
-## Dependencies
-
-## Quick Start
 
 
 

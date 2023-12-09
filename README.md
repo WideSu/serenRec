@@ -10,7 +10,7 @@ Parenthood is life’s greatest adventure. Many have said that Becoming a parent
 
 # Our contribution
 
-- Proposed a problem statement for the middle session-based recommendation system for retailer stores using YOOCHOOSE and Ta Feng datasets with multi-category action
+- Proposed a problem statement for the middle session-based recommendation system for Amazon Babe Dataset
 - Used PyTorch to implement the models in RecSys 2021 including the traditional algorithms (baseline) such as S-POP, S-KNN, S-BPR as well as the SOTA: STAMP, Gru4Rec+
 - Evaluated the models by their accuracy, coverage, and novelty
 - Used attention scores in STAMP to depict the importance of historical interactions

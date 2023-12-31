@@ -3,6 +3,7 @@
 </p>
 
 ---
+A session-based recommendation system to recommend baby products on Amazon using 4 models namely ITEMKNN, POP, GRU4Rec, and STAMP, STAMP performs the best in all accuracy metrics followed by GRU4Rec. We also did result analysis, including ranking accuracy, coverage, popularity. 
 
 # Project statement
 
